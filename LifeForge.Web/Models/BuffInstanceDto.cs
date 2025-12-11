@@ -8,6 +8,7 @@ namespace LifeForge.Web.Models
         public string BuffId { get; set; } = string.Empty;
         public string CharacterId { get; set; } = string.Empty;
         public string BuffName { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public bool IsDebuff { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }

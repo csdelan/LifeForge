@@ -83,6 +83,7 @@ namespace LifeForge.Application.Services
                     BuffId = buffId,
                     CharacterId = characterId,
                     BuffName = buff.Name,
+                    Description = buff.Description,
                     IsDebuff = buff.IsDebuff,
                     StartTime = startTime,
                     EndTime = endTime,

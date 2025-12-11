@@ -118,7 +118,8 @@
                     <div class="active-buffs-gallery">
                         @foreach (var buff in activeBuffs)
                         {
-                            <div class="active-buff-card @(buff.IsDebuff ? "debuff-card" : "buff-card")">
+                            <div class="active-buff-card @(buff.IsDebuff ? "debuff-card" : "buff-card")" 
+                                 title="@GetBuffTooltip(buff)">
                                 <div class="active-buff-image">
                                     @if (!string.IsNullOrEmpty(buff.ImageData))
                                     {
@@ -277,6 +278,67 @@
         if (remaining.TotalMinutes >= 1)
             return $"{(int)remaining.TotalMinutes}m";
         return "Expiring soon";
+    }
+
+    private string GetBuffTooltip(BuffInstanceDto buff)
+    {
+        var tooltip = new System.Text.StringBuilder();
+        
+        // Add buff name
+        tooltip.AppendLine(buff.BuffName);
+        
+        // Add description if available
+        if (!string.IsNullOrEmpty(buff.Description))
+        {
+            tooltip.AppendLine();
+            tooltip.AppendLine(buff.Description);
+        }
+        
+        // Add modifiers section
+        var modifiers = new List<string>();
+        
+        if (buff.HPModifier != 0)
+            modifiers.Add($"HP {FormatModifier(buff.HPModifier)}");
+        if (buff.HPMaxModifier != 0)
+            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxModifier)}");
+        if (buff.HPPercentModifier != 0)
+            modifiers.Add($"HP {FormatModifier(buff.HPPercentModifier)}%");
+        if (buff.HPMaxPercentModifier != 0)
+            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxPercentModifier)}%");
+        if (buff.MPModifier != 0)
+            modifiers.Add($"MP {FormatModifier(buff.MPModifier)}");
+        if (buff.MPMaxModifier != 0)
+            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxModifier)}");
+        if (buff.MPPercentModifier != 0)
+            modifiers.Add($"MP {FormatModifier(buff.MPPercentModifier)}%");
+        if (buff.MPMaxPercentModifier != 0)
+            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxPercentModifier)}%");
+        if (buff.XpGainsPercentModifier != 0)
+            modifiers.Add($"XP Gains {FormatModifier(buff.XpGainsPercentModifier)}%");
+        
+        if (modifiers.Any())
+        {
+            tooltip.AppendLine();
+            tooltip.AppendLine("Modifiers:");
+            foreach (var modifier in modifiers)
+            {
+                tooltip.AppendLine($"  {modifier}");
+            }
+        }
+        
+        // Add stacks info if > 1
+        if (buff.Stacks > 1)
+        {
+            tooltip.AppendLine();
+            tooltip.AppendLine($"Stacks: {buff.Stacks}");
+        }
+        
+        return tooltip.ToString().TrimEnd();
+    }
+
+    private string FormatModifier(int value)
+    {
+        return value > 0 ? $"+{value}" : value.ToString();
     }
 
     private string GetImageDataUrl(string? imageData, string? contentType)

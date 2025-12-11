@@ -24,6 +24,9 @@ namespace LifeForge.DataAccess.Models
         [BsonElement("buffName")]
         public string BuffName { get; set; } = string.Empty;
 
+        [BsonElement("description")]
+        public string? Description { get; set; }
+
         [BsonElement("isDebuff")]
         public bool IsDebuff { get; set; }
 
