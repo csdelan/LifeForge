@@ -35,7 +35,6 @@ else
                     <th>Status</th>
                     <th>Started</th>
                     <th>Duration</th>
-                    <th>Rewards</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -58,31 +57,6 @@ else
                             @GetDuration(questRun.StartTime)
                         </td>
                         <td>
-                            @if (questRun.Rewards.Any())
-                            {
-                                <div class="rewards-list">
-                                    @foreach (var reward in questRun.Rewards)
-                                    {
-                                        <span class="reward-badge @GetRewardTypeClass(reward.Type)">
-                                            @if (!string.IsNullOrEmpty(reward.Icon))
-                                            {
-                                                <span class="reward-icon">@reward.Icon</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="bi @GetRewardIcon(reward.Type)"></span>
-                                            }
-                                            @reward.Amount @reward.RewardClass
-                                        </span>
-                                    }
-                                </div>
-                            }
-                            else
-                            {
-                                <span class="text-muted">Complete to see rewards</span>
-                            }
-                        </td>
-                        <td>
                             <button class="btn btn-success btn-sm" 
                                     @onclick="() => CompleteQuestRun(questRun.Id!)"
                                     title="Complete Quest">
@@ -91,7 +65,7 @@ else
                             <button class="btn btn-danger btn-sm ms-2" 
                                     @onclick="() => DeleteQuestRun(questRun.Id!)"
                                     title="Cancel Quest">
-                                <span class="bi bi-x-circle"></span>
+                                Cancel
                             </button>
                         </td>
                     </tr>
@@ -181,44 +155,6 @@ else
         background-color: #6c757d !important;
     }
 
-    .rewards-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    .reward-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.35rem 0.6rem;
-        border-radius: 6px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #ffffff;
-    }
-
-    .reward-icon {
-        font-size: 1.3rem;
-        line-height: 1;
-        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
-    }
-
-    .reward-xp {
-        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
-        color: #ffffff;
-    }
-
-    .reward-currency {
-        background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
-        color: #212529;
-    }
-
-    .reward-item {
-        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
-        color: #ffffff;
-    }
-
     .text-muted {
         color: #6c757d !important;
         font-style: italic;
@@ -251,10 +187,6 @@ else
     @@media (max-width: 768px) {
         .table-responsive {
             overflow-x: auto;
-        }
-        
-        .rewards-list {
-            flex-direction: column;
         }
     }
 </style>
@@ -380,30 +312,6 @@ else
             QuestStatus.Completed => "bg-success",
             QuestStatus.Failed => "bg-danger",
             _ => "bg-secondary"
-        };
-    }
-
-    private string GetRewardTypeClass(RewardType type)
-    {
-        return type switch
-        {
-            RewardType.Experience => "reward-xp",
-            RewardType.Currency => "reward-currency",
-            RewardType.Item => "reward-item",
-            RewardType.Badge => "reward-badge",
-            _ => "reward-badge"
-        };
-    }
-
-    private string GetRewardIcon(RewardType type)
-    {
-        return type switch
-        {
-            RewardType.Experience => "bi-star-fill",
-            RewardType.Currency => "bi-coin",
-            RewardType.Item => "bi-box",
-            RewardType.Badge => "bi-award",
-            _ => "bi-gift"
         };
     }
 
