@@ -1,0 +1,51 @@
+﻿namespace LifeForge.Domain
+{
+    public enum BuffTrigger
+    {
+        Action,     // The buff is triggered by a specific action or event
+        Manual,     // The buff is applied manually by the user
+    }
+
+    public interface IModifier
+    {
+        int HPModifier { get; }
+        int HPMaxModifier { get; }
+        int HPPercentModifier { get; }
+        int HPMaxPercentModifier { get; }
+        int MPModifier { get; }
+        int MPMaxModifier { get; }
+        int MPPercentModifier { get; }
+        int MPMaxPercentModifier { get; }
+        int XpGainsPercentModifier { get; }
+    }
+
+    /// <summary>
+    /// Represents a buff or debuff that can be applied to a character, caused by various life events or conditions.
+    /// </summary>
+    public class Buff : IModifier
+    {
+        public string ImagePath { get; set; }
+        public bool IsDebuff { get; set; }
+        public string Name { get; set; }
+        public BuffTrigger Trigger { get; set; }
+        public int MaxStacks { get; set; }
+        public string Description { get; set; }
+
+        #region Modifiers
+
+        public int HPModifier { get; set; }
+        public int HPMaxModifier { get; set; }
+        public int HPPercentModifier { get; set; }
+        public int HPMaxPercentModifier { get; set; }
+        public int MPModifier { get; set; }
+        public int MPMaxModifier { get; set; }
+        public int MPPercentModifier { get; set; }
+        public int MPMaxPercentModifier { get; set; }
+        public int XpGainsPercentModifier { get; set; }
+
+        #endregion
+
+
+        public TimeSpan Duration { get; set; }
+    }
+}
