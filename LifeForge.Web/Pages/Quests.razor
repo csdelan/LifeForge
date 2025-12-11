@@ -1,0 +1,341 @@
+@page "/quests"
+@using LifeForge.Web.Models
+@using LifeForge.Web.Services
+@using LifeForge.Domain
+@inject QuestService QuestService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Quest Manager</PageTitle>
+
+<h1>Quest Manager</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <span class="bi bi-plus-circle"></span> Create New Quest
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Loading quests...</em></p>
+}
+else if (quests == null || !quests.Any())
+{
+    <div class="alert alert-info">
+        No quests available. Create your first quest to get started!
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Difficulty</th>
+                    <th>Repeatability</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var quest in quests)
+                {
+                    <tr>
+                        <td>
+                            @if (!string.IsNullOrEmpty(quest.ImageName))
+                            {
+                                <img src="@GetImageUrl(quest.ImageName)" alt="@quest.Name" style="width: 50px; height: 50px; object-fit: cover;" />
+                            }
+                            else
+                            {
+                                <div style="width: 50px; height: 50px; background-color: #ccc; display: flex; align-items: center; justify-content: center;">
+                                    <span class="bi bi-image"></span>
+                                </div>
+                            }
+                        </td>
+                        <td>@quest.Name</td>
+                        <td>@(string.IsNullOrEmpty(quest.Description) ? "No description" : quest.Description)</td>
+                        <td>
+                            <span class="badge @GetDifficultyBadgeClass(quest.Difficulty)">
+                                @quest.Difficulty
+                            </span>
+                        </td>
+                        <td>@quest.Repeatability</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-2" @onclick="() => ShowEditModal(quest)">
+                                <span class="bi bi-pencil"></span> Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteQuest(quest.Id!)">
+                                <span class="bi bi-trash"></span> Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Quest" : "Create New Quest")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentQuest" OnValidSubmit="SaveQuest">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <InputText class="form-control" @bind-Value="currentQuest.Name" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <InputTextArea class="form-control" rows="3" @bind-Value="currentQuest.Description" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Difficulty</label>
+                            <InputSelect class="form-select" @bind-Value="currentQuest.Difficulty">
+                                @foreach (DifficultyLevel difficulty in Enum.GetValues(typeof(DifficultyLevel)))
+                                {
+                                    <option value="@difficulty">@difficulty</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Repeatability</label>
+                            <InputSelect class="form-select" @bind-Value="currentQuest.Repeatability">
+                                @foreach (QuestRepeatability repeatability in Enum.GetValues(typeof(QuestRepeatability)))
+                                {
+                                    <option value="@repeatability">@repeatability</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Quest Image</label>
+                            <InputFile class="form-control" OnChange="HandleImageUpload" accept="image/*" />
+                            @if (isUploading)
+                            {
+                                <small class="text-muted">Uploading image...</small>
+                            }
+                            @if (!string.IsNullOrEmpty(currentQuest.ImageName))
+                            {
+                                <div class="mt-2">
+                                    <img src="@GetImageUrl(currentQuest.ImageName)" alt="Preview" style="max-width: 200px; max-height: 200px;" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isUploading">
+                                @(isEditMode ? "Update" : "Create") Quest
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+@code {
+    private List<QuestDto> quests = new();
+    private QuestDto currentQuest = new();
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isLoading = true;
+    private bool isUploading = false;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQuests();
+    }
+
+    private async Task LoadQuests()
+    {
+        try
+        {
+            isLoading = true;
+            quests = await QuestService.GetAllQuestsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load quests: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        currentQuest = new QuestDto { Difficulty = DifficultyLevel.Medium, Repeatability = QuestRepeatability.OneTime };
+        isEditMode = false;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void ShowEditModal(QuestDto quest)
+    {
+        currentQuest = new QuestDto
+        {
+            Id = quest.Id,
+            Name = quest.Name,
+            ImageName = quest.ImageName,
+            Description = quest.Description,
+            Difficulty = quest.Difficulty,
+            Repeatability = quest.Repeatability
+        };
+        isEditMode = true;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentQuest = new();
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            isUploading = true;
+            var file = e.File;
+            var uploadedFileName = await QuestService.UploadImageAsync(file);
+            if (!string.IsNullOrEmpty(uploadedFileName))
+            {
+                currentQuest.ImageName = uploadedFileName;
+            }
+            else
+            {
+                errorMessage = "Failed to upload image";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading image: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task SaveQuest()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                var success = await QuestService.UpdateQuestAsync(currentQuest.Id!, currentQuest);
+                if (success)
+                {
+                    successMessage = "Quest updated successfully!";
+                    await LoadQuests();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to update quest";
+                }
+            }
+            else
+            {
+                var created = await QuestService.CreateQuestAsync(currentQuest);
+                if (created != null)
+                {
+                    successMessage = "Quest created successfully!";
+                    await LoadQuests();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to create quest";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving quest: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteQuest(string id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this quest?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var success = await QuestService.DeleteQuestAsync(id);
+            if (success)
+            {
+                successMessage = "Quest deleted successfully!";
+                await LoadQuests();
+            }
+            else
+            {
+                errorMessage = "Failed to delete quest";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting quest: {ex.Message}";
+        }
+    }
+
+    private string GetImageUrl(string imageName)
+    {
+        return $"https://localhost:7001/images/quests/{imageName}";
+    }
+
+    private string GetDifficultyBadgeClass(DifficultyLevel difficulty)
+    {
+        return difficulty switch
+        {
+            DifficultyLevel.Trivial => "bg-secondary",
+            DifficultyLevel.Easy => "bg-success",
+            DifficultyLevel.Medium => "bg-primary",
+            DifficultyLevel.Hard => "bg-warning",
+            DifficultyLevel.CrazyHard => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+}

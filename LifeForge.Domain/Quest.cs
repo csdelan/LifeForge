@@ -33,6 +33,7 @@
     public class Quest
     {
         public string Name { get; }
+        public string ImageName { get; set; }
         public string Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
