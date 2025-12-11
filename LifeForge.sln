@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.Domain", "LifeFor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.Web", "LifeForge.Web\LifeForge.Web.csproj", "{CD30E5B3-A094-4F93-A8B6-71CFA0861DC1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.DataAccess", "LifeForge.DataAccess\LifeForge.DataAccess.csproj", "{B93336FE-F993-3957-A6EB-15DDF2CE2669}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.Api", "LifeForge.Api\LifeForge.Api.csproj", "{7FBABD2C-5675-0055-B91F-4708482986C8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,8 +45,35 @@ Global
 		{CD30E5B3-A094-4F93-A8B6-71CFA0861DC1}.Release|x64.Build.0 = Release|Any CPU
 		{CD30E5B3-A094-4F93-A8B6-71CFA0861DC1}.Release|x86.ActiveCfg = Release|Any CPU
 		{CD30E5B3-A094-4F93-A8B6-71CFA0861DC1}.Release|x86.Build.0 = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|x64.Build.0 = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Debug|x86.Build.0 = Debug|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|x64.ActiveCfg = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|x64.Build.0 = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|x86.ActiveCfg = Release|Any CPU
+		{B93336FE-F993-3957-A6EB-15DDF2CE2669}.Release|x86.Build.0 = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|x64.Build.0 = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Debug|x86.Build.0 = Debug|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x64.ActiveCfg = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x64.Build.0 = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x86.ActiveCfg = Release|Any CPU
+		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {16C7D651-968D-4CE9-ACAD-A1914474AD82}
 	EndGlobalSection
 EndGlobal
