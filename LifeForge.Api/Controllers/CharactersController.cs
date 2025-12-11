@@ -63,6 +63,45 @@ namespace LifeForge.Api.Controllers
             }
         }
 
+        [HttpGet("all")]
+        public async Task<ActionResult<List<CharacterDto>>> GetAllCharacters()
+        {
+            try
+            {
+                var characters = await _characterRepository.GetAllCharactersAsync();
+                var characterDtos = characters.Select(character => new CharacterDto
+                {
+                    Id = character.Id,
+                    Name = character.Name,
+                    HP = character.HP,
+                    HPMax = character.HPMax,
+                    MP = character.MP,
+                    MPMax = character.MPMax,
+                    Strength = character.Strength,
+                    Discipline = character.Discipline,
+                    Focus = character.Focus,
+                    Currencies = character.Currencies,
+                    ClassProfiles = character.ClassProfiles.ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => new CharacterClassDto
+                        {
+                            ClassName = kvp.Value.ClassName,
+                            Level = kvp.Value.Level,
+                            CurrentXp = kvp.Value.CurrentXp,
+                            XpToNextLevel = kvp.Value.XpToNextLevel
+                        }
+                    )
+                }).ToList();
+
+                return Ok(characterDtos);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving characters");
+                return StatusCode(500, "An error occurred while retrieving characters");
+            }
+        }
+
         [HttpPut]
         public async Task<IActionResult> UpdateCharacter([FromBody] UpdateCharacterDto updateDto)
         {

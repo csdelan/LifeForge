@@ -3,7 +3,10 @@
 @using LifeForge.Web.Services
 @using LifeForge.Domain
 @inject BuffService BuffService
+@inject BuffInstanceService BuffInstanceService
+@inject CharacterService CharacterService
 @inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 
 <PageTitle>Buff Manager</PageTitle>
 
@@ -29,8 +32,8 @@ else
     <div class="buff-gallery">
         @foreach (var buff in buffs)
         {
-            <div class="buff-card @(buff.IsDebuff ? "debuff-card" : "")">
-                <div class="buff-card-image" @onclick="() => ShowEditModal(buff)">
+            <div class="buff-card @(buff.IsDebuff ? "debuff-card" : "")" @onclick="() => ShowEditModal(buff)">
+                <div class="buff-card-image">
                     @if (!string.IsNullOrEmpty(buff.ImageData))
                     {
                         <img src="@GetImageDataUrl(buff.ImageData, buff.ImageContentType)" alt="@buff.Name" />
@@ -105,6 +108,12 @@ else
                     </div>
                 </div>
                 <div class="buff-card-actions" @onclick:stopPropagation="true">
+                    @if (buff.Trigger == BuffTrigger.Manual)
+                    {
+                        <button class="btn btn-sm btn-success" @onclick="() => ActivateBuff(buff)" title="Activate Buff">
+                            <span class="bi bi-play-fill"></span>
+                        </button>
+                    }
                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditModal(buff)" title="Edit">
                         <span class="bi bi-pencil"></span>
                     </button>
@@ -119,8 +128,8 @@ else
 
 @if (showModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-xl">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" @onclick="CloseModal">
+        <div class="modal-dialog modal-xl" @onclick:stopPropagation="true">
             <div class="modal-content custom-modal">
                 <div class="modal-header">
                     <h5 class="modal-title">@(isEditMode ? "Edit Buff" : "Create New Buff")</h5>
@@ -299,6 +308,7 @@ else
         display: flex;
         flex-direction: column;
         border: 2px solid #28a745;
+        cursor: pointer;
     }
 
     .buff-card.debuff-card {
@@ -530,10 +540,31 @@ else
     private bool isUploading = false;
     private string? errorMessage;
     private string? successMessage;
+    private DotNetObjectReference<Buffs>? objRef;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadBuffs();
+        objRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.addEscapeKeyListener", objRef);
+        }
+        else if (!showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+        }
+    }
+
+    [JSInvokable]
+    public void HandleEscapeKey()
+    {
+        CloseModal();
+        StateHasChanged();
     }
 
     private async Task LoadBuffs()
@@ -696,6 +727,40 @@ else
         }
     }
 
+    private async Task ActivateBuff(BuffDto buff)
+    {
+        try
+        {
+            // Get the character (assuming single character for now)
+            var characters = await CharacterService.GetAllCharactersAsync();
+            var character = characters.FirstOrDefault();
+
+            if (character == null)
+            {
+                errorMessage = "No character found. Please create a character first.";
+                return;
+            }
+
+            var result = await BuffInstanceService.ActivateBuffAsync(character.Id!, buff.Id!);
+            
+            if (result != null && result.Success)
+            {
+                var modifiersText = result.ModifiersApplied.Any() 
+                    ? " Applied: " + string.Join(", ", result.ModifiersApplied.Select(m => $"{m.Key} {(m.Value > 0 ? "+" : "")}{m.Value}"))
+                    : "";
+                successMessage = $"Buff '{buff.Name}' activated!{modifiersText}";
+            }
+            else
+            {
+                errorMessage = result?.ErrorMessage ?? "Failed to activate buff";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error activating buff: {ex.Message}";
+        }
+    }
+
     private string GetImageDataUrl(string? imageData, string? contentType)
     {
         if (string.IsNullOrEmpty(imageData))
@@ -725,5 +790,14 @@ else
     private string FormatDuration(int durationDays)
     {
         return durationDays == 1 ? "1 day" : $"{durationDays} days";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+            objRef.Dispose();
+        }
     }
 }

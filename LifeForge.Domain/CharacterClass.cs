@@ -6,7 +6,7 @@
     public class CharacterClass
     {
         public string Name { get; }
-        public uint BaseXp { get; set; } = 100;
+        public uint BaseXp { get; set; } = 10;
         public double XpMultiplier { get; set; } = 1.1;
 
         public CharacterClass(string name)

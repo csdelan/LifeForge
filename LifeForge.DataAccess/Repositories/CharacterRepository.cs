@@ -23,6 +23,16 @@ namespace LifeForge.DataAccess.Repositories
             return await _charactersCollection.Find(_ => true).FirstOrDefaultAsync();
         }
 
+        public async Task<List<CharacterEntity>> GetAllCharactersAsync()
+        {
+            return await _charactersCollection.Find(_ => true).ToListAsync();
+        }
+
+        public async Task<CharacterEntity?> GetCharacterByIdAsync(string id)
+        {
+            return await _charactersCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
+        }
+
         public async Task<CharacterEntity> CreateCharacterAsync(CharacterEntity character)
         {
             character.CreatedAt = DateTime.UtcNow;
@@ -52,6 +62,16 @@ namespace LifeForge.DataAccess.Repositories
             character.UpdatedAt = DateTime.UtcNow;
             var result = await _charactersCollection.ReplaceOneAsync(
                 x => x.Id == character.Id,
+                character);
+
+            return result.IsAcknowledged && result.ModifiedCount > 0;
+        }
+
+        public async Task<bool> UpdateCharacterAsync(string id, CharacterEntity character)
+        {
+            character.UpdatedAt = DateTime.UtcNow;
+            var result = await _charactersCollection.ReplaceOneAsync(
+                x => x.Id == id,
                 character);
 
             return result.IsAcknowledged && result.ModifiedCount > 0;

@@ -14,6 +14,16 @@ namespace LifeForge.DataAccess.Repositories
         Task<CharacterEntity?> GetCharacterAsync();
 
         /// <summary>
+        /// Get all characters (useful for buff activation to find character ID)
+        /// </summary>
+        Task<List<CharacterEntity>> GetAllCharactersAsync();
+
+        /// <summary>
+        /// Get character by ID
+        /// </summary>
+        Task<CharacterEntity?> GetCharacterByIdAsync(string id);
+
+        /// <summary>
         /// Create the initial character
         /// </summary>
         Task<CharacterEntity> CreateCharacterAsync(CharacterEntity character);
@@ -22,6 +32,11 @@ namespace LifeForge.DataAccess.Repositories
         /// Update the character
         /// </summary>
         Task<bool> UpdateCharacterAsync(CharacterEntity character);
+
+        /// <summary>
+        /// Update the character by ID
+        /// </summary>
+        Task<bool> UpdateCharacterAsync(string id, CharacterEntity character);
 
         /// <summary>
         /// Check if a character exists

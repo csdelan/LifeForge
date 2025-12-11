@@ -19,9 +19,9 @@ namespace LifeForge.Web.Models
                 new RewardDefinition { Name = "Gold", Icon = "\U0001FA99", Type = RewardType.Currency, RewardClass = "Gold" },
                 new RewardDefinition { Name = "Karma", Icon = "\u262F\uFE0F", Type = RewardType.Currency, RewardClass = "Karma" },
                 new RewardDefinition { Name = "Design Workslot", Icon = "\U0001F3A8", Type = RewardType.Currency, RewardClass = "DesignWorkslot" },
-                new RewardDefinition { Name = "Life XP", Icon = "👤", Type = RewardType.Experience, RewardClass = "Trader" },
+                new RewardDefinition { Name = "Life XP", Icon = "👤", Type = RewardType.Experience, RewardClass = "Life" },
                 new RewardDefinition { Name = "Trader XP", Icon = "📈", Type = RewardType.Experience, RewardClass = "Trader" },
-                new RewardDefinition { Name = "Software Engineer XP", Icon = "🧙‍♂", Type = RewardType.Experience, RewardClass = "Trader" }
+                new RewardDefinition { Name = "Software Engineer XP", Icon = "🧙‍♂", Type = RewardType.Experience, RewardClass = "SoftwareEngineer" }
             };
         }
 

@@ -2,7 +2,10 @@
 @page "/character"
 @using LifeForge.Domain
 @using LifeForge.Web.Services
+@using LifeForge.Web.Models
 @inject CharacterService CharacterService
+@inject BuffInstanceService BuffInstanceService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Character Sheet</PageTitle>
 
@@ -103,6 +106,54 @@
                     }
                 </div>
             </div>
+
+            <div class="buffs-section">
+                <h3>Active Buffs/Debuffs</h3>
+                @if (isLoadingBuffs)
+                {
+                    <p><em>Loading active buffs...</em></p>
+                }
+                else if (activeBuffs.Any())
+                {
+                    <div class="active-buffs-gallery">
+                        @foreach (var buff in activeBuffs)
+                        {
+                            <div class="active-buff-card @(buff.IsDebuff ? "debuff-card" : "buff-card")">
+                                <div class="active-buff-image">
+                                    @if (!string.IsNullOrEmpty(buff.ImageData))
+                                    {
+                                        <img src="@GetImageDataUrl(buff.ImageData, buff.ImageContentType)" alt="@buff.BuffName" />
+                                    }
+                                    else
+                                    {
+                                        <div class="active-buff-placeholder">
+                                            <span class="bi @(buff.IsDebuff ? "bi-arrow-down-circle" : "bi-arrow-up-circle")"></span>
+                                        </div>
+                                    }
+                                    @if (buff.Stacks > 1)
+                                    {
+                                        <div class="active-buff-stacks-badge">x@buff.Stacks</div>
+                                    }
+                                </div>
+                                <div class="active-buff-info">
+                                    <div class="active-buff-name">@buff.BuffName</div>
+                                    <div class="active-buff-timer">
+                                        <span class="bi bi-clock"></span>
+                                        @GetBuffTimeRemaining(buff)
+                                    </div>
+                                </div>
+                                <button class="btn-end-buff" @onclick="() => EndBuff(buff)" title="End Buff">
+                                    <span class="bi bi-x-lg"></span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="no-data">No active buffs</p>
+                }
+            </div>
         </div>
     }
     else
@@ -115,13 +166,34 @@
     }
 </div>
 
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
 @code {
     private Models.CharacterDto? _character;
+    private List<BuffInstanceDto> activeBuffs = new();
     private bool isLoading = true;
+    private bool isLoadingBuffs = true;
+    private string? errorMessage;
+    private string? successMessage;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCharacter();
+        await LoadActiveBuffs();
     }
 
     private async Task LoadCharacter()
@@ -140,6 +212,80 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task LoadActiveBuffs()
+    {
+        try
+        {
+            isLoadingBuffs = true;
+            if (_character != null && !string.IsNullOrEmpty(_character.Id))
+            {
+                activeBuffs = await BuffInstanceService.GetActiveBuffInstancesByCharacterIdAsync(_character.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading active buffs: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingBuffs = false;
+        }
+    }
+
+    private async Task EndBuff(BuffInstanceDto buff)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to end '{buff.BuffName}'?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await BuffInstanceService.DeactivateBuffInstanceAsync(_character!.Id!, buff.Id!);
+            
+            if (result != null && result.Success)
+            {
+                var modifiersText = result.ModifiersApplied.Any() 
+                    ? " Removed: " + string.Join(", ", result.ModifiersApplied.Select(m => $"{m.Key} {(m.Value > 0 ? "+" : "")}{m.Value}"))
+                    : "";
+                successMessage = $"Buff '{buff.BuffName}' ended!{modifiersText}";
+                
+                // Reload character and buffs
+                await LoadCharacter();
+                await LoadActiveBuffs();
+            }
+            else
+            {
+                errorMessage = result?.ErrorMessage ?? "Failed to end buff";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error ending buff: {ex.Message}";
+        }
+    }
+
+    private string GetBuffTimeRemaining(BuffInstanceDto buff)
+    {
+        var remaining = buff.EndTime - DateTime.UtcNow;
+        if (remaining.TotalDays >= 1)
+            return $"{(int)remaining.TotalDays}d";
+        if (remaining.TotalHours >= 1)
+            return $"{(int)remaining.TotalHours}h";
+        if (remaining.TotalMinutes >= 1)
+            return $"{(int)remaining.TotalMinutes}m";
+        return "Expiring soon";
+    }
+
+    private string GetImageDataUrl(string? imageData, string? contentType)
+    {
+        if (string.IsNullOrEmpty(imageData))
+            return string.Empty;
+        
+        var mimeType = !string.IsNullOrEmpty(contentType) ? contentType : "image/jpeg";
+        return $"data:{mimeType};base64,{imageData}";
     }
 
     private double GetHPPercentage()

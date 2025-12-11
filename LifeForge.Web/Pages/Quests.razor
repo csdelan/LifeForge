@@ -5,6 +5,7 @@
 @inject QuestService QuestService
 @inject QuestRunService QuestRunService
 @inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 
 <PageTitle>Quest Manager</PageTitle>
 
@@ -35,8 +36,8 @@ else
     <div class="quest-gallery">
         @foreach (var quest in quests)
         {
-            <div class="quest-card">
-                <div class="quest-card-image" @onclick="() => ShowEditModal(quest)">
+            <div class="quest-card" @onclick="() => ShowEditModal(quest)">
+                <div class="quest-card-image">
                     @if (!string.IsNullOrEmpty(quest.ImageData))
                     {
                         <img src="@GetImageDataUrl(quest.ImageData, quest.ImageContentType)" alt="@quest.Name" />
@@ -96,8 +97,8 @@ else
 
 @if (showModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
-        <div class="modal-dialog modal-lg">
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" @onclick="CloseModal">
+        <div class="modal-dialog modal-lg" @onclick:stopPropagation="true">
             <div class="modal-content custom-modal">
                 <div class="modal-header">
                     <h5 class="modal-title">@(isEditMode ? "Edit Quest" : "Create New Quest")</h5>
@@ -224,6 +225,7 @@ else
         position: relative;
         display: flex;
         flex-direction: column;
+        cursor: pointer;
     }
 
     .quest-card:hover {
@@ -480,10 +482,31 @@ else
     private bool isUploading = false;
     private string? errorMessage;
     private string? successMessage;
+    private DotNetObjectReference<Quests>? objRef;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadQuests();
+        objRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.addEscapeKeyListener", objRef);
+        }
+        else if (!showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+        }
+    }
+
+    [JSInvokable]
+    public void HandleEscapeKey()
+    {
+        CloseModal();
+        StateHasChanged();
     }
 
     private async Task LoadQuests()
@@ -725,5 +748,14 @@ else
             DifficultyLevel.CrazyHard => "bg-danger",
             _ => "bg-secondary"
         };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+            objRef.Dispose();
+        }
     }
 }
