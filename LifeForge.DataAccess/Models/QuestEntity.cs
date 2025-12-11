@@ -19,6 +19,12 @@ namespace LifeForge.DataAccess.Models
         [BsonElement("imageName")]
         public string? ImageName { get; set; }
 
+        [BsonElement("imageData")]
+        public string? ImageData { get; set; }
+
+        [BsonElement("imageContentType")]
+        public string? ImageContentType { get; set; }
+
         [BsonElement("description")]
         public string? Description { get; set; }
 

@@ -30,6 +30,8 @@ namespace LifeForge.Api.Controllers
                     Id = q.Id,
                     Name = q.Name,
                     ImageName = q.ImageName,
+                    ImageData = q.ImageData,
+                    ImageContentType = q.ImageContentType,
                     Description = q.Description,
                     Difficulty = q.Difficulty,
                     Repeatability = q.Repeatability
@@ -60,6 +62,8 @@ namespace LifeForge.Api.Controllers
                     Id = quest.Id,
                     Name = quest.Name,
                     ImageName = quest.ImageName,
+                    ImageData = quest.ImageData,
+                    ImageContentType = quest.ImageContentType,
                     Description = quest.Description,
                     Difficulty = quest.Difficulty,
                     Repeatability = quest.Repeatability
@@ -83,6 +87,8 @@ namespace LifeForge.Api.Controllers
                 {
                     Name = createQuestDto.Name,
                     ImageName = createQuestDto.ImageName,
+                    ImageData = createQuestDto.ImageData,
+                    ImageContentType = createQuestDto.ImageContentType,
                     Description = createQuestDto.Description,
                     Difficulty = createQuestDto.Difficulty,
                     Repeatability = createQuestDto.Repeatability
@@ -95,6 +101,8 @@ namespace LifeForge.Api.Controllers
                     Id = createdQuest.Id,
                     Name = createdQuest.Name,
                     ImageName = createdQuest.ImageName,
+                    ImageData = createdQuest.ImageData,
+                    ImageContentType = createdQuest.ImageContentType,
                     Description = createdQuest.Description,
                     Difficulty = createdQuest.Difficulty,
                     Repeatability = createdQuest.Repeatability
@@ -122,6 +130,8 @@ namespace LifeForge.Api.Controllers
 
                 existingQuest.Name = updateQuestDto.Name;
                 existingQuest.ImageName = updateQuestDto.ImageName;
+                existingQuest.ImageData = updateQuestDto.ImageData;
+                existingQuest.ImageContentType = updateQuestDto.ImageContentType;
                 existingQuest.Description = updateQuestDto.Description;
                 existingQuest.Difficulty = updateQuestDto.Difficulty;
                 existingQuest.Repeatability = updateQuestDto.Repeatability;
@@ -162,7 +172,7 @@ namespace LifeForge.Api.Controllers
         }
 
         [HttpPost("upload-image")]
-        public async Task<ActionResult<string>> UploadImage(IFormFile file)
+        public async Task<ActionResult<object>> UploadImage(IFormFile file)
         {
             try
             {
@@ -171,18 +181,22 @@ namespace LifeForge.Api.Controllers
                     return BadRequest("No file uploaded");
                 }
 
-                var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "quests");
-                Directory.CreateDirectory(uploadsFolder);
-
-                var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                using (var stream = new FileStream(filePath, FileMode.Create))
+                if (file.Length > 5 * 1024 * 1024)
                 {
-                    await file.CopyToAsync(stream);
+                    return BadRequest("File size exceeds 5MB limit");
                 }
 
-                return Ok(new { fileName = uniqueFileName });
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var imageBytes = memoryStream.ToArray();
+                var base64String = Convert.ToBase64String(imageBytes);
+
+                return Ok(new 
+                { 
+                    fileName = file.FileName,
+                    imageData = base64String,
+                    contentType = file.ContentType
+                });
             }
             catch (Exception ex)
             {

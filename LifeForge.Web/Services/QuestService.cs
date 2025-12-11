@@ -42,7 +42,7 @@ namespace LifeForge.Web.Services
             return response.IsSuccessStatusCode;
         }
 
-        public async Task<string?> UploadImageAsync(IBrowserFile file)
+        public async Task<ImageUploadResult?> UploadImageAsync(IBrowserFile file)
         {
             using var content = new MultipartFormDataContent();
             var fileContent = new StreamContent(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
@@ -52,15 +52,16 @@ namespace LifeForge.Web.Services
             var response = await _httpClient.PostAsync("api/quests/upload-image", content);
             if (response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<UploadImageResponse>();
-                return result?.FileName;
+                return await response.Content.ReadFromJsonAsync<ImageUploadResult>();
             }
             return null;
         }
 
-        private class UploadImageResponse
+        public class ImageUploadResult
         {
             public string FileName { get; set; } = string.Empty;
+            public string ImageData { get; set; } = string.Empty;
+            public string ContentType { get; set; } = string.Empty;
         }
     }
 }
