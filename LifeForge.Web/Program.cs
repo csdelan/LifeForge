@@ -10,7 +10,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // Configure HttpClient for API calls
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7001") });
 
-// Register QuestService
+// Register services
 builder.Services.AddScoped<QuestService>();
+builder.Services.AddScoped<QuestRunService>();
 
 await builder.Build().RunAsync();

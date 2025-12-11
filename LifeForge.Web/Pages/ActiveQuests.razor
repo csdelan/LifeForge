@@ -1,0 +1,386 @@
+@page "/active-quests"
+@using LifeForge.Web.Models
+@using LifeForge.Web.Services
+@using LifeForge.Domain
+@inject QuestRunService QuestRunService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Active Quests</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Active Quests</h1>
+    <a href="/quests" class="btn btn-secondary">
+        <span class="bi bi-arrow-left"></span> Back to Quest Library
+    </a>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Loading active quests...</em></p>
+}
+else if (activeQuestRuns == null || !activeQuestRuns.Any())
+{
+    <div class="alert alert-info">
+        <h4><span class="bi bi-info-circle"></span> No Active Quests</h4>
+        <p>You don't have any quests in progress. <a href="/quests">Start a quest</a> to begin earning rewards!</p>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover quest-runs-table">
+            <thead>
+                <tr>
+                    <th>Quest Name</th>
+                    <th>Status</th>
+                    <th>Started</th>
+                    <th>Duration</th>
+                    <th>Rewards</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var questRun in activeQuestRuns)
+                {
+                    <tr>
+                        <td>
+                            <strong>@questRun.QuestName</strong>
+                        </td>
+                        <td>
+                            <span class="badge @GetStatusBadgeClass(questRun.Status)">
+                                @questRun.Status
+                            </span>
+                        </td>
+                        <td>
+                            @questRun.StartTime.ToLocalTime().ToString("g")
+                        </td>
+                        <td>
+                            @GetDuration(questRun.StartTime)
+                        </td>
+                        <td>
+                            @if (questRun.Rewards.Any())
+                            {
+                                <div class="rewards-list">
+                                    @foreach (var reward in questRun.Rewards)
+                                    {
+                                        <span class="reward-badge @GetRewardTypeClass(reward.Type)">
+                                            @if (!string.IsNullOrEmpty(reward.Icon))
+                                            {
+                                                <span class="reward-icon">@reward.Icon</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="bi @GetRewardIcon(reward.Type)"></span>
+                                            }
+                                            @reward.Amount @reward.RewardClass
+                                        </span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Complete to see rewards</span>
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-success btn-sm" 
+                                    @onclick="() => CompleteQuestRun(questRun.Id!)"
+                                    title="Complete Quest">
+                                <span class="bi bi-check-circle"></span> Finish
+                            </button>
+                            <button class="btn btn-danger btn-sm ms-2" 
+                                    @onclick="() => DeleteQuestRun(questRun.Id!)"
+                                    title="Cancel Quest">
+                                <span class="bi bi-x-circle"></span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<style>
+    .quest-runs-table {
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #dee2e6;
+    }
+
+    .quest-runs-table thead {
+        background: #f8f9fa;
+    }
+
+    .quest-runs-table thead th {
+        color: #212529;
+        font-weight: 600;
+        padding: 1rem;
+        border: none;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .quest-runs-table tbody td {
+        color: #212529;
+        padding: 1rem;
+        vertical-align: middle;
+        border-top: 1px solid #dee2e6;
+        background-color: #ffffff;
+    }
+
+    .quest-runs-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+
+    .quest-runs-table tbody tr:hover td {
+        background: #f8f9fa;
+    }
+
+    .quest-runs-table tbody td strong {
+        color: #212529;
+    }
+
+    .badge {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+        color: #ffffff;
+    }
+
+    .bg-primary {
+        background-color: #0d6efd !important;
+    }
+
+    .bg-success {
+        background-color: #198754 !important;
+    }
+
+    .bg-danger {
+        background-color: #dc3545 !important;
+    }
+
+    .bg-secondary {
+        background-color: #6c757d !important;
+    }
+
+    .rewards-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .reward-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.35rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .reward-icon {
+        font-size: 1.3rem;
+        line-height: 1;
+        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    }
+
+    .reward-xp {
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: #ffffff;
+    }
+
+    .reward-currency {
+        background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+        color: #212529;
+    }
+
+    .reward-item {
+        background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+        color: #ffffff;
+    }
+
+    .text-muted {
+        color: #6c757d !important;
+        font-style: italic;
+    }
+
+    .btn {
+        color: #ffffff;
+    }
+
+    .btn-success {
+        background-color: #198754;
+        border-color: #198754;
+    }
+
+    .btn-success:hover {
+        background-color: #157347;
+        border-color: #146c43;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+
+    @@media (max-width: 768px) {
+        .table-responsive {
+            overflow-x: auto;
+        }
+        
+        .rewards-list {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@code {
+    private List<QuestRunDto> activeQuestRuns = new();
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActiveQuestRuns();
+    }
+
+    private async Task LoadActiveQuestRuns()
+    {
+        try
+        {
+            isLoading = true;
+            activeQuestRuns = await QuestRunService.GetActiveQuestRunsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load active quests: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task CompleteQuestRun(string questRunId)
+    {
+        try
+        {
+            var completedQuestRun = await QuestRunService.CompleteQuestRunAsync(questRunId);
+            if (completedQuestRun != null)
+            {
+                successMessage = $"Quest '{completedQuestRun.QuestName}' completed! Rewards earned!";
+                await LoadActiveQuestRuns();
+            }
+            else
+            {
+                errorMessage = "Failed to complete quest";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error completing quest: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteQuestRun(string questRunId)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to cancel this quest?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var success = await QuestRunService.DeleteQuestRunAsync(questRunId);
+            if (success)
+            {
+                successMessage = "Quest cancelled successfully!";
+                await LoadActiveQuestRuns();
+            }
+            else
+            {
+                errorMessage = "Failed to cancel quest";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error cancelling quest: {ex.Message}";
+        }
+    }
+
+    private string GetStatusBadgeClass(QuestStatus status)
+    {
+        return status switch
+        {
+            QuestStatus.NotStarted => "bg-secondary",
+            QuestStatus.InProgress => "bg-primary",
+            QuestStatus.Completed => "bg-success",
+            QuestStatus.Failed => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetRewardTypeClass(RewardType type)
+    {
+        return type switch
+        {
+            RewardType.Experience => "reward-xp",
+            RewardType.Currency => "reward-currency",
+            RewardType.Item => "reward-item",
+            RewardType.Badge => "reward-badge",
+            _ => "reward-badge"
+        };
+    }
+
+    private string GetRewardIcon(RewardType type)
+    {
+        return type switch
+        {
+            RewardType.Experience => "bi-star-fill",
+            RewardType.Currency => "bi-coin",
+            RewardType.Item => "bi-box",
+            RewardType.Badge => "bi-award",
+            _ => "bi-gift"
+        };
+    }
+
+    private string GetDuration(DateTime startTime)
+    {
+        var duration = DateTime.UtcNow - startTime;
+        
+        if (duration.TotalMinutes < 1)
+            return "Just now";
+        if (duration.TotalHours < 1)
+            return $"{(int)duration.TotalMinutes}m";
+        if (duration.TotalDays < 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        
+        return $"{(int)duration.TotalDays}d {duration.Hours}h";
+    }
+}

@@ -37,6 +37,7 @@
         public string Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
+        public List<Reward> Rewards { get; set; } = new List<Reward>();
 
         public Quest(string Name)
         {

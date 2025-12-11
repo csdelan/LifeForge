@@ -12,6 +12,7 @@ namespace LifeForge.Api.Models
         public string? Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
+        public List<RewardDto> Rewards { get; set; } = new List<RewardDto>();
     }
 
     public class CreateQuestDto
@@ -23,6 +24,7 @@ namespace LifeForge.Api.Models
         public string? Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
+        public List<RewardDto> Rewards { get; set; } = new List<RewardDto>();
     }
 
     public class UpdateQuestDto
@@ -34,5 +36,14 @@ namespace LifeForge.Api.Models
         public string? Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
+        public List<RewardDto> Rewards { get; set; } = new List<RewardDto>();
+    }
+
+    public class RewardDto
+    {
+        public RewardType Type { get; set; }
+        public string RewardClass { get; set; } = string.Empty;
+        public int Amount { get; set; }
+        public string? Icon { get; set; }
     }
 }

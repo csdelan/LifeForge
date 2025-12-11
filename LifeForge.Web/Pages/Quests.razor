@@ -3,15 +3,21 @@
 @using LifeForge.Web.Services
 @using LifeForge.Domain
 @inject QuestService QuestService
+@inject QuestRunService QuestRunService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Quest Manager</PageTitle>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>Quest Manager</h1>
-    <button class="btn btn-primary" @onclick="ShowCreateModal">
-        <span class="bi bi-plus-circle"></span> Create New Quest
-    </button>
+    <div>
+        <a href="/active-quests" class="btn btn-success me-2">
+            <span class="bi bi-play-circle"></span> Active Quests
+        </a>
+        <button class="btn btn-primary" @onclick="ShowCreateModal">
+            <span class="bi bi-plus-circle"></span> Create New Quest
+        </button>
+    </div>
 </div>
 
 @if (isLoading)
@@ -29,8 +35,8 @@ else
     <div class="quest-gallery">
         @foreach (var quest in quests)
         {
-            <div class="quest-card" @onclick="() => ShowEditModal(quest)">
-                <div class="quest-card-image">
+            <div class="quest-card">
+                <div class="quest-card-image" @onclick="() => ShowEditModal(quest)">
                     @if (!string.IsNullOrEmpty(quest.ImageData))
                     {
                         <img src="@GetImageDataUrl(quest.ImageData, quest.ImageContentType)" alt="@quest.Name" />
@@ -45,6 +51,24 @@ else
                 <div class="quest-card-content">
                     <h3 class="quest-card-title">@quest.Name</h3>
                     <p class="quest-card-description">@(string.IsNullOrEmpty(quest.Description) ? "No description" : quest.Description)</p>
+                    @if (quest.Rewards.Any())
+                    {
+                        <div class="quest-rewards-preview">
+                            <small class="text-muted">Rewards:</small>
+                            <div class="rewards-preview-list">
+                                @foreach (var reward in quest.Rewards)
+                                {
+                                    <span class="reward-preview-badge">
+                                        @if (!string.IsNullOrEmpty(reward.Icon))
+                                        {
+                                            <span class="reward-icon">@reward.Icon</span>
+                                        }
+                                        @reward.Amount
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
                     <div class="quest-card-footer">
                         <span class="badge @GetDifficultyBadgeClass(quest.Difficulty)">
                             @quest.Difficulty
@@ -55,6 +79,9 @@ else
                     </div>
                 </div>
                 <div class="quest-card-actions" @onclick:stopPropagation="true">
+                    <button class="btn btn-sm btn-success" @onclick="() => StartQuest(quest)" title="Start Quest">
+                        <span class="bi bi-play-fill"></span>
+                    </button>
                     <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditModal(quest)" title="Edit">
                         <span class="bi bi-pencil"></span>
                     </button>
@@ -71,7 +98,7 @@ else
 {
     <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
         <div class="modal-dialog modal-lg">
-            <div class="modal-content">
+            <div class="modal-content custom-modal">
                 <div class="modal-header">
                     <h5 class="modal-title">@(isEditMode ? "Edit Quest" : "Create New Quest")</h5>
                     <button type="button" class="btn-close" @onclick="CloseModal"></button>
@@ -126,6 +153,32 @@ else
                             }
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">Rewards</label>
+                            <div class="rewards-config">
+                                @foreach (var reward in currentQuest.Rewards)
+                                {
+                                    <div class="reward-item-config">
+                                        <select class="form-select form-select-sm reward-select" value="@reward.RewardClass" @onchange="e => OnRewardSelected(reward, e.Value?.ToString() ?? string.Empty)">
+                                            <option value="">Select Reward...</option>
+                                            @foreach (var rewardDef in RewardDefinition.GetAvailableRewards())
+                                            {
+                                                <option value="@rewardDef.RewardClass">@rewardDef.Icon @rewardDef.Name</option>
+                                            }
+                                        </select>
+                                        <input type="number" class="form-control form-control-sm" placeholder="Amount" @bind="reward.Amount" min="1" />
+                                        <button type="button" class="btn btn-sm btn-danger" @onclick="() => RemoveReward(reward)">
+                                            <span class="bi bi-trash"></span>
+                                        </button>
+                                    </div>
+                                }
+                                <button type="button" class="btn btn-sm btn-success mt-2" @onclick="AddReward">
+                                    <span class="bi bi-plus-circle"></span> Add Reward
+                                </button>
+                            </div>
+                            <small class="text-muted">Configure rewards for completing this quest.</small>
+                        </div>
+
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
                             <button type="submit" class="btn btn-primary" disabled="@isUploading">
@@ -167,7 +220,6 @@ else
         background: #2d2d2d;
         border-radius: 12px;
         overflow: hidden;
-        cursor: pointer;
         transition: transform 0.2s, box-shadow 0.2s;
         position: relative;
         display: flex;
@@ -185,6 +237,7 @@ else
         overflow: hidden;
         background: #1a1a1a;
         position: relative;
+        cursor: pointer;
     }
 
     .quest-card-image img {
@@ -231,6 +284,46 @@ else
         text-overflow: ellipsis;
     }
 
+    .quest-rewards-preview {
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+    }
+
+    .quest-rewards-preview small {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.75rem;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
+    .rewards-preview-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .reward-preview-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.2rem 0.5rem;
+        background: rgba(100, 100, 100, 0.6);
+        color: white;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .reward-icon {
+        font-size: 1rem;
+        line-height: 1;
+        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    }
+
     .quest-card-footer {
         display: flex;
         justify-content: space-between;
@@ -269,6 +362,16 @@ else
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
+    .quest-card-actions .btn-success {
+        background: rgba(40, 167, 69, 0.95);
+        color: white;
+    }
+
+    .quest-card-actions .btn-success:hover {
+        background: rgba(40, 167, 69, 1);
+        transform: scale(1.05);
+    }
+
     .quest-card-actions .btn:hover {
         background: rgba(255, 255, 255, 1);
         transform: scale(1.05);
@@ -281,6 +384,78 @@ else
         border-radius: 6px;
     }
 
+    .custom-modal {
+        background-color: #ffffff;
+        color: #212529;
+    }
+
+    .custom-modal .modal-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .custom-modal .modal-title {
+        color: #212529;
+    }
+
+    .custom-modal .modal-body {
+        color: #212529;
+    }
+
+    .custom-modal .modal-footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .custom-modal .form-label {
+        color: #212529;
+        font-weight: 600;
+    }
+
+    .custom-modal .form-control,
+    .custom-modal .form-select {
+        background-color: #ffffff;
+        color: #212529;
+        border: 1px solid #ced4da;
+    }
+
+    .custom-modal .form-control:focus,
+    .custom-modal .form-select:focus {
+        background-color: #ffffff;
+        color: #212529;
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .custom-modal .text-muted {
+        color: #6c757d !important;
+    }
+
+    .rewards-config {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f8f9fa;
+        max-width: 600px;
+    }
+
+    .reward-item-config {
+        display: grid;
+        grid-template-columns: 2fr 120px 40px;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        align-items: center;
+    }
+
+    .reward-select {
+        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI", sans-serif;
+    }
+
+    .reward-select option {
+        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI", sans-serif;
+    }
+
     @@media (max-width: 768px) {
         .quest-gallery {
             grid-template-columns: 1fr;
@@ -288,6 +463,10 @@ else
         
         .quest-card-actions {
             opacity: 1;
+        }
+
+        .reward-item-config {
+            grid-template-columns: 1fr;
         }
     }
 </style>
@@ -324,9 +503,34 @@ else
         }
     }
 
+    private async Task StartQuest(QuestDto quest)
+    {
+        try
+        {
+            var questRun = await QuestRunService.StartQuestRunAsync(quest.Id!);
+            if (questRun != null)
+            {
+                successMessage = $"Quest '{quest.Name}' started! Good luck!";
+            }
+            else
+            {
+                errorMessage = "Failed to start quest";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error starting quest: {ex.Message}";
+        }
+    }
+
     private void ShowCreateModal()
     {
-        currentQuest = new QuestDto { Difficulty = DifficultyLevel.Medium, Repeatability = QuestRepeatability.OneTime };
+        currentQuest = new QuestDto 
+        { 
+            Difficulty = DifficultyLevel.Medium, 
+            Repeatability = QuestRepeatability.OneTime,
+            Rewards = new List<RewardDto>()
+        };
         isEditMode = false;
         showModal = true;
         errorMessage = null;
@@ -344,7 +548,14 @@ else
             ImageContentType = quest.ImageContentType,
             Description = quest.Description,
             Difficulty = quest.Difficulty,
-            Repeatability = quest.Repeatability
+            Repeatability = quest.Repeatability,
+            Rewards = quest.Rewards.Select(r => new RewardDto
+            {
+                Type = r.Type,
+                RewardClass = r.RewardClass,
+                Amount = r.Amount,
+                Icon = r.Icon
+            }).ToList()
         };
         isEditMode = true;
         showModal = true;
@@ -356,6 +567,45 @@ else
     {
         showModal = false;
         currentQuest = new();
+    }
+
+    private void AddReward()
+    {
+        currentQuest.Rewards.Add(new RewardDto
+        {
+            Type = RewardType.Currency,
+            RewardClass = "",
+            Amount = 10,
+            Icon = ""
+        });
+    }
+
+    private void OnRewardSelected(RewardDto reward, string rewardClass)
+    {
+        reward.RewardClass = rewardClass;
+        var rewardDef = RewardDefinition.GetByRewardClass(rewardClass);
+        if (rewardDef != null)
+        {
+            reward.Type = rewardDef.Type;
+            reward.Icon = rewardDef.Icon;
+        }
+        StateHasChanged();
+    }
+
+    private void UpdateRewardFromClass(RewardDto reward)
+    {
+        var rewardDef = RewardDefinition.GetByRewardClass(reward.RewardClass);
+        if (rewardDef != null)
+        {
+            reward.Type = rewardDef.Type;
+            reward.Icon = rewardDef.Icon;
+            reward.RewardClass = rewardDef.RewardClass;
+        }
+    }
+
+    private void RemoveReward(RewardDto reward)
+    {
+        currentQuest.Rewards.Remove(reward);
     }
 
     private async Task HandleImageUpload(InputFileChangeEventArgs e)

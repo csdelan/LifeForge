@@ -36,6 +36,9 @@ namespace LifeForge.DataAccess.Models
         [BsonRepresentation(BsonType.String)]
         public QuestRepeatability Repeatability { get; set; }
 
+        [BsonElement("rewards")]
+        public List<RewardEntity> Rewards { get; set; } = new List<RewardEntity>();
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -53,7 +56,14 @@ namespace LifeForge.DataAccess.Models
                 ImageName = quest.ImageName,
                 Description = quest.Description,
                 Difficulty = quest.Difficulty,
-                Repeatability = quest.Repeatability
+                Repeatability = quest.Repeatability,
+                Rewards = quest.Rewards.Select(r => new RewardEntity
+                {
+                    Type = r.Type,
+                    RewardClass = r.RewardClass,
+                    Amount = r.Amount,
+                    Icon = r.Icon
+                }).ToList()
             };
         }
 
@@ -62,13 +72,22 @@ namespace LifeForge.DataAccess.Models
         /// </summary>
         public Quest ToDomain()
         {
-            return new Quest(Name)
+            var quest = new Quest(Name)
             {
                 ImageName = ImageName,
                 Description = Description,
                 Difficulty = Difficulty,
                 Repeatability = Repeatability
             };
+
+            quest.Rewards = Rewards.Select(r => new Reward(
+                r.Type,
+                r.RewardClass,
+                r.Amount,
+                r.Icon ?? string.Empty
+            )).ToList();
+
+            return quest;
         }
     }
 }

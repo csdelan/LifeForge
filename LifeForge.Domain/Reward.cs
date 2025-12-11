@@ -20,13 +20,21 @@
     /// </summary>
     public class Reward
     {
-        public string ImagePath { get; set; }
-        public RewardType Type { get; }
-        public string RewardClass { get; set; }
-        public int Amount { get; }
+        public string Icon { get; set; } = string.Empty;
+        public RewardType Type { get; set; }
+        public string RewardClass { get; set; } = string.Empty;
+        public int Amount { get; set; }
 
         public Reward()
         {
+        }
+
+        public Reward(RewardType type, string rewardClass, int amount, string icon = "🪙")
+        {
+            Type = type;
+            RewardClass = rewardClass;
+            Amount = amount;
+            Icon = icon;
         }
     }
 }

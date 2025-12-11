@@ -34,7 +34,14 @@ namespace LifeForge.Api.Controllers
                     ImageContentType = q.ImageContentType,
                     Description = q.Description,
                     Difficulty = q.Difficulty,
-                    Repeatability = q.Repeatability
+                    Repeatability = q.Repeatability,
+                    Rewards = q.Rewards.Select(r => new RewardDto
+                    {
+                        Type = r.Type,
+                        RewardClass = r.RewardClass,
+                        Amount = r.Amount,
+                        Icon = r.Icon
+                    }).ToList()
                 }).ToList();
 
                 return Ok(questDtos);
@@ -66,7 +73,14 @@ namespace LifeForge.Api.Controllers
                     ImageContentType = quest.ImageContentType,
                     Description = quest.Description,
                     Difficulty = quest.Difficulty,
-                    Repeatability = quest.Repeatability
+                    Repeatability = quest.Repeatability,
+                    Rewards = quest.Rewards.Select(r => new RewardDto
+                    {
+                        Type = r.Type,
+                        RewardClass = r.RewardClass,
+                        Amount = r.Amount,
+                        Icon = r.Icon
+                    }).ToList()
                 };
 
                 return Ok(questDto);
@@ -91,7 +105,14 @@ namespace LifeForge.Api.Controllers
                     ImageContentType = createQuestDto.ImageContentType,
                     Description = createQuestDto.Description,
                     Difficulty = createQuestDto.Difficulty,
-                    Repeatability = createQuestDto.Repeatability
+                    Repeatability = createQuestDto.Repeatability,
+                    Rewards = createQuestDto.Rewards.Select(r => new RewardEntity
+                    {
+                        Type = r.Type,
+                        RewardClass = r.RewardClass,
+                        Amount = r.Amount,
+                        Icon = r.Icon
+                    }).ToList()
                 };
 
                 var createdQuest = await _questRepository.CreateQuestAsync(questEntity);
@@ -105,7 +126,14 @@ namespace LifeForge.Api.Controllers
                     ImageContentType = createdQuest.ImageContentType,
                     Description = createdQuest.Description,
                     Difficulty = createdQuest.Difficulty,
-                    Repeatability = createdQuest.Repeatability
+                    Repeatability = createdQuest.Repeatability,
+                    Rewards = createdQuest.Rewards.Select(r => new RewardDto
+                    {
+                        Type = r.Type,
+                        RewardClass = r.RewardClass,
+                        Amount = r.Amount,
+                        Icon = r.Icon
+                    }).ToList()
                 };
 
                 return CreatedAtAction(nameof(GetQuest), new { id = questDto.Id }, questDto);
@@ -135,6 +163,13 @@ namespace LifeForge.Api.Controllers
                 existingQuest.Description = updateQuestDto.Description;
                 existingQuest.Difficulty = updateQuestDto.Difficulty;
                 existingQuest.Repeatability = updateQuestDto.Repeatability;
+                existingQuest.Rewards = updateQuestDto.Rewards.Select(r => new RewardEntity
+                {
+                    Type = r.Type,
+                    RewardClass = r.RewardClass,
+                    Amount = r.Amount,
+                    Icon = r.Icon
+                }).ToList();
 
                 var success = await _questRepository.UpdateQuestAsync(id, existingQuest);
                 if (!success)

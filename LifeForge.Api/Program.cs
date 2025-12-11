@@ -9,6 +9,7 @@ builder.Services.Configure<MongoDbSettings>(
 
 // Add repositories
 builder.Services.AddSingleton<IQuestRepository, QuestRepository>();
+builder.Services.AddSingleton<IQuestRunRepository, QuestRunRepository>();
 
 // Add controllers
 builder.Services.AddControllers();

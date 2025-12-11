@@ -12,5 +12,6 @@ namespace LifeForge.Web.Models
         public string? Description { get; set; }
         public DifficultyLevel Difficulty { get; set; }
         public QuestRepeatability Repeatability { get; set; }
+        public List<RewardDto> Rewards { get; set; } = new List<RewardDto>();
     }
 }
