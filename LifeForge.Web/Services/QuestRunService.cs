@@ -42,6 +42,13 @@ namespace LifeForge.Web.Services
             return await response.Content.ReadFromJsonAsync<QuestRunDto>();
         }
 
+        public async Task<RewardApplicationResultDto?> ApplyRewardsAsync(string questRunId)
+        {
+            var response = await _httpClient.PostAsync($"api/questruns/{questRunId}/apply-rewards", null);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<RewardApplicationResultDto>();
+        }
+
         public async Task<bool> DeleteQuestRunAsync(string id)
         {
             var response = await _httpClient.DeleteAsync($"api/questruns/{id}");

@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LifeForge.Application\LifeForge.Application.csproj" />
     <ProjectReference Include="..\LifeForge.DataAccess\LifeForge.DataAccess.csproj" />
     <ProjectReference Include="..\LifeForge.Domain\LifeForge.Domain.csproj" />
   </ItemGroup>

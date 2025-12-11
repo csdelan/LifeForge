@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.DataAccess", "Lif
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.Api", "LifeForge.Api\LifeForge.Api.csproj", "{7FBABD2C-5675-0055-B91F-4708482986C8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LifeForge.Application", "LifeForge.Application\LifeForge.Application.csproj", "{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x64.Build.0 = Release|Any CPU
 		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x86.ActiveCfg = Release|Any CPU
 		{7FBABD2C-5675-0055-B91F-4708482986C8}.Release|x86.Build.0 = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|x64.Build.0 = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Debug|x86.Build.0 = Debug|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|x64.ActiveCfg = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|x64.Build.0 = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|x86.ActiveCfg = Release|Any CPU
+		{6438ACE0-6C08-4E61-83E5-E7D7942DBEA8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

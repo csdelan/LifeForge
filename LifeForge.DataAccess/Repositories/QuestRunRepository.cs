@@ -36,6 +36,13 @@ namespace LifeForge.DataAccess.Repositories
             return await _questRunsCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
         }
 
+        public async Task<QuestRunEntity?> GetActiveQuestRunByQuestIdAsync(string questId)
+        {
+            return await _questRunsCollection
+                .Find(qr => qr.QuestId == questId && qr.Status == QuestStatus.InProgress)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<QuestRunEntity> CreateQuestRunAsync(QuestRunEntity questRun)
         {
             questRun.CreatedAt = DateTime.UtcNow;

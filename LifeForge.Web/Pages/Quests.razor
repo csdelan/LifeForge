@@ -517,6 +517,10 @@ else
                 errorMessage = "Failed to start quest";
             }
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            errorMessage = $"Quest '{quest.Name}' is already in progress. Complete or cancel it before starting a new instance.";
+        }
         catch (Exception ex)
         {
             errorMessage = $"Error starting quest: {ex.Message}";

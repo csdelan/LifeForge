@@ -1,13 +1,19 @@
 @page "/"
 @page "/character"
 @using LifeForge.Domain
+@using LifeForge.Web.Services
+@inject CharacterService CharacterService
 
 <PageTitle>Character Sheet</PageTitle>
 
 <div class="character-sheet">
     <h1>Character Sheet</h1>
 
-    @if (_character != null)
+    @if (isLoading)
+    {
+        <p><em>Loading character...</em></p>
+    }
+    else if (_character != null)
     {
         <div class="character-info">
             <h2>@_character.Name</h2>
@@ -53,14 +59,17 @@
             <div class="wealth-section">
                 <h3>Wealth</h3>
                 <div class="currency-list">
-                    @foreach (var currency in _character.Currencies)
+                    @if (_character.Currencies.Any())
                     {
-                        <div class="currency-item">
-                            <span class="currency-name">@currency.Key:</span>
-                            <span class="currency-amount">@currency.Value</span>
-                        </div>
+                        @foreach (var currency in _character.Currencies)
+                        {
+                            <div class="currency-item">
+                                <span class="currency-name">@currency.Key:</span>
+                                <span class="currency-amount">@currency.Value</span>
+                            </div>
+                        }
                     }
-                    @if (!_character.Currencies.Any())
+                    else
                     {
                         <p class="no-data">No currencies yet</p>
                     }
@@ -70,40 +79,27 @@
             <div class="classes-section">
                 <h3>Classes</h3>
                 <div class="class-list">
-                    @foreach (var classProfile in _character.ClassProfiles)
+                    @if (_character.ClassProfiles.Any())
                     {
-                        <div class="class-item">
-                            <h4>@classProfile.Value.Class.Name</h4>
-                            <div class="class-details">
-                                <span>Level: @classProfile.Value.Level</span>
-                                <div class="xp-bar">
-                                    <div class="progress-bar small">
-                                        <div class="progress-fill xp-fill" style="width: @GetXPPercentage(classProfile.Value)%"></div>
-                                        <span class="progress-text small">@classProfile.Value.CurrentXp / @classProfile.Value.XpToNextLevel</span>
+                        @foreach (var classProfile in _character.ClassProfiles)
+                        {
+                            <div class="class-item">
+                                <h4>@classProfile.Value.ClassName</h4>
+                                <div class="class-details">
+                                    <span>Level: @classProfile.Value.Level</span>
+                                    <div class="xp-bar">
+                                        <div class="progress-bar small">
+                                            <div class="progress-fill xp-fill" style="width: @GetXPPercentage(classProfile.Value)%"></div>
+                                            <span class="progress-text small">@classProfile.Value.CurrentXp / @classProfile.Value.XpToNextLevel</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        }
                     }
-                    @if (!_character.ClassProfiles.Any())
+                    else
                     {
                         <p class="no-data">No classes yet</p>
-                    }
-                </div>
-            </div>
-
-            <div class="buffs-section">
-                <h3>Active Buffs</h3>
-                <div class="buff-list">
-                    @foreach (var buff in _character.ActiveBuffs)
-                    {
-                        <div class="buff-item @(buff.Buff.IsDebuff ? "debuff" : "buff")">
-                            <span class="buff-name">@buff.Buff.Name</span>
-                        </div>
-                    }
-                    @if (!_character.ActiveBuffs.Any())
-                    {
-                        <p class="no-data">No active buffs</p>
                     }
                 </div>
             </div>
@@ -111,16 +107,39 @@
     }
     else
     {
-        <p>Loading character...</p>
+        <div class="alert alert-info">
+            <h4><span class="bi bi-info-circle"></span> No Character Yet</h4>
+            <p>Complete your first quest to create your character and start earning rewards!</p>
+            <a href="/quests" class="btn btn-primary">Go to Quests</a>
+        </div>
     }
 </div>
 
 @code {
-    private Character? _character;
+    private Models.CharacterDto? _character;
+    private bool isLoading = true;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        _character = CreateSampleCharacter();
+        await LoadCharacter();
+    }
+
+    private async Task LoadCharacter()
+    {
+        try
+        {
+            isLoading = true;
+            _character = await CharacterService.GetCharacterAsync();
+        }
+        catch (Exception ex)
+        {
+            // Character doesn't exist yet - that's okay
+            Console.WriteLine($"No character found: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private double GetHPPercentage()
@@ -135,51 +154,9 @@
         return ((double)_character.MP / _character.MPMax) * 100;
     }
 
-    private double GetXPPercentage(CharacterClassSnapshot classSnapshot)
+    private double GetXPPercentage(Models.CharacterClassDto classSnapshot)
     {
-        if (classSnapshot.XpToNextLevel == 0) return 0;
+        if (classSnapshot.XpToNextLevel == 0) return 100;
         return ((double)classSnapshot.CurrentXp / classSnapshot.XpToNextLevel) * 100;
-    }
-
-    private Character CreateSampleCharacter()
-    {
-        var character = new Character("Hero of LifeForge")
-        {
-            HP = 75,
-            HPMax = 100,
-            MP = 40,
-            MPMax = 80,
-            Strength = 15,
-            Discipline = 12,
-            Focus = 18
-        };
-
-        character.Currencies[CurrencyType.Gold] = 1250;
-        character.Currencies[CurrencyType.Karma] = 350;
-        character.Currencies[CurrencyType.DesignWorkslot] = 5;
-
-        var developerClass = new CharacterClass("Developer");
-        character.ClassProfiles["Developer"] = new CharacterClassSnapshot(developerClass, 5, 350);
-
-        var traderClass = new CharacterClass("Trader");
-        character.ClassProfiles["Trader"] = new CharacterClassSnapshot(traderClass, 3, 120);
-
-        var strengthBuff = new Buff
-        {
-            Name = "Focused Mind",
-            IsDebuff = false,
-            Description = "Increased focus from good sleep"
-        };
-        character.ActiveBuffs.Add(new BuffInstance(strengthBuff));
-
-        var debuff = new Buff
-        {
-            Name = "Tired",
-            IsDebuff = true,
-            Description = "Reduced stats from lack of sleep"
-        };
-        character.ActiveBuffs.Add(new BuffInstance(debuff));
-
-        return character;
     }
 }

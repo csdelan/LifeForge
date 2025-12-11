@@ -1,5 +1,6 @@
 using LifeForge.DataAccess.Configuration;
 using LifeForge.DataAccess.Repositories;
+using LifeForge.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,10 @@ builder.Services.Configure<MongoDbSettings>(
 // Add repositories
 builder.Services.AddSingleton<IQuestRepository, QuestRepository>();
 builder.Services.AddSingleton<IQuestRunRepository, QuestRunRepository>();
+builder.Services.AddSingleton<ICharacterRepository, CharacterRepository>();
+
+// Add application services
+builder.Services.AddScoped<IRewardApplicationService, RewardApplicationService>();
 
 // Add controllers
 builder.Services.AddControllers();

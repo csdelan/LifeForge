@@ -291,21 +291,58 @@ else
     {
         try
         {
+            // 1. Complete the quest run
             var completedQuestRun = await QuestRunService.CompleteQuestRunAsync(questRunId);
-            if (completedQuestRun != null)
-            {
-                successMessage = $"Quest '{completedQuestRun.QuestName}' completed! Rewards earned!";
-                await LoadActiveQuestRuns();
-            }
-            else
+            if (completedQuestRun == null)
             {
                 errorMessage = "Failed to complete quest";
+                return;
             }
+
+            // 2. Apply rewards to character
+            var rewardResult = await QuestRunService.ApplyRewardsAsync(questRunId);
+            if (rewardResult == null || !rewardResult.Success)
+            {
+                errorMessage = $"Quest completed but rewards failed: {rewardResult?.ErrorMessage ?? "Unknown error"}";
+                await LoadActiveQuestRuns();
+                return;
+            }
+
+            // 3. Show success with reward details
+            successMessage = FormatRewardMessage(completedQuestRun.QuestName, rewardResult);
+            await LoadActiveQuestRuns();
         }
         catch (Exception ex)
         {
             errorMessage = $"Error completing quest: {ex.Message}";
         }
+    }
+
+    private string FormatRewardMessage(string questName, RewardApplicationResultDto result)
+    {
+        var message = $"Quest '{questName}' completed! ";
+        var rewards = new List<string>();
+
+        foreach (var currency in result.CurrenciesGained)
+        {
+            rewards.Add($"+{currency.Value} {currency.Key}");
+        }
+
+        foreach (var xp in result.ExperienceGained)
+        {
+            rewards.Add($"+{xp.Value} {xp.Key} XP");
+        }
+
+        if (rewards.Any())
+        {
+            message += "Rewards: " + string.Join(", ", rewards);
+        }
+        else
+        {
+            message += "No rewards gained.";
+        }
+
+        return message;
     }
 
     private async Task DeleteQuestRun(string questRunId)

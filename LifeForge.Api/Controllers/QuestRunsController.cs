@@ -3,6 +3,7 @@ using LifeForge.Api.Models;
 using LifeForge.DataAccess.Repositories;
 using LifeForge.DataAccess.Models;
 using LifeForge.Domain;
+using LifeForge.Application.Services;
 
 namespace LifeForge.Api.Controllers
 {
@@ -12,15 +13,18 @@ namespace LifeForge.Api.Controllers
     {
         private readonly IQuestRunRepository _questRunRepository;
         private readonly IQuestRepository _questRepository;
+        private readonly IRewardApplicationService _rewardApplicationService;
         private readonly ILogger<QuestRunsController> _logger;
 
         public QuestRunsController(
             IQuestRunRepository questRunRepository,
             IQuestRepository questRepository,
+            IRewardApplicationService rewardApplicationService,
             ILogger<QuestRunsController> logger)
         {
             _questRunRepository = questRunRepository;
             _questRepository = questRepository;
+            _rewardApplicationService = rewardApplicationService;
             _logger = logger;
         }
 
@@ -88,6 +92,17 @@ namespace LifeForge.Api.Controllers
                     return NotFound($"Quest with ID {startQuestRunDto.QuestId} not found");
                 }
 
+                // Check if this quest is already in progress
+                var existingActiveQuestRun = await _questRunRepository.GetActiveQuestRunByQuestIdAsync(startQuestRunDto.QuestId);
+                if (existingActiveQuestRun != null)
+                {
+                    return Conflict(new 
+                    { 
+                        message = $"Quest '{quest.Name}' is already in progress. Complete or cancel it before starting a new instance.",
+                        existingQuestRunId = existingActiveQuestRun.Id
+                    });
+                }
+
                 // Create quest run entity
                 var questRunEntity = new QuestRunEntity
                 {
@@ -101,6 +116,9 @@ namespace LifeForge.Api.Controllers
 
                 var createdQuestRun = await _questRunRepository.CreateQuestRunAsync(questRunEntity);
 
+                _logger.LogInformation("Started quest run {QuestRunId} for quest {QuestId} ({QuestName})", 
+                    createdQuestRun.Id, quest.Id, quest.Name);
+
                 return CreatedAtAction(
                     nameof(GetQuestRun),
                     new { id = createdQuestRun.Id },
@@ -108,7 +126,7 @@ namespace LifeForge.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error starting quest run");
+                _logger.LogError(ex, "Error starting quest run for quest {QuestId}", startQuestRunDto.QuestId);
                 return StatusCode(500, "An error occurred while starting the quest run");
             }
         }
@@ -178,6 +196,43 @@ namespace LifeForge.Api.Controllers
             {
                 _logger.LogError(ex, "Error completing quest run {QuestRunId}", id);
                 return StatusCode(500, "An error occurred while completing the quest run");
+            }
+        }
+
+        [HttpPost("{id}/apply-rewards")]
+        public async Task<ActionResult<RewardApplicationResultDto>> ApplyRewards(string id)
+        {
+            try
+            {
+                var result = await _rewardApplicationService.ApplyQuestRewardsAsync(id);
+
+                if (!result.Success)
+                {
+                    return BadRequest(new RewardApplicationResultDto
+                    {
+                        Success = false,
+                        ErrorMessage = result.ErrorMessage
+                    });
+                }
+
+                var resultDto = new RewardApplicationResultDto
+                {
+                    Success = result.Success,
+                    AppliedRewards = result.AppliedRewards,
+                    CurrenciesGained = result.CurrenciesGained,
+                    ExperienceGained = result.ExperienceGained
+                };
+
+                return Ok(resultDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error applying rewards for quest run {QuestRunId}", id);
+                return StatusCode(500, new RewardApplicationResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "An error occurred while applying rewards"
+                });
             }
         }
 
