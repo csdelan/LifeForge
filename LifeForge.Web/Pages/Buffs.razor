@@ -1,0 +1,729 @@
+@page "/buffs"
+@using LifeForge.Web.Models
+@using LifeForge.Web.Services
+@using LifeForge.Domain
+@inject BuffService BuffService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Buff Manager</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Buff Manager</h1>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <span class="bi bi-plus-circle"></span> Create New Buff
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Loading buffs...</em></p>
+}
+else if (buffs == null || !buffs.Any())
+{
+    <div class="alert alert-info">
+        No buffs available. Create your first buff to get started!
+    </div>
+}
+else
+{
+    <div class="buff-gallery">
+        @foreach (var buff in buffs)
+        {
+            <div class="buff-card @(buff.IsDebuff ? "debuff-card" : "")">
+                <div class="buff-card-image" @onclick="() => ShowEditModal(buff)">
+                    @if (!string.IsNullOrEmpty(buff.ImageData))
+                    {
+                        <img src="@GetImageDataUrl(buff.ImageData, buff.ImageContentType)" alt="@buff.Name" />
+                    }
+                    else
+                    {
+                        <div class="buff-card-placeholder">
+                            <span class="bi @(buff.IsDebuff ? "bi-arrow-down-circle" : "bi-arrow-up-circle")"></span>
+                        </div>
+                    }
+                </div>
+                <div class="buff-card-content">
+                    <h3 class="buff-card-title">@buff.Name</h3>
+                    <p class="buff-card-description">@(string.IsNullOrEmpty(buff.Description) ? "No description" : buff.Description)</p>
+                    @if (HasModifiers(buff))
+                    {
+                        <div class="buff-modifiers-preview">
+                            <small class="text-muted">Modifiers:</small>
+                            <div class="modifiers-preview-list">
+                                @if (buff.HPModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.HPModifier)">HP @FormatModifier(buff.HPModifier)</span>
+                                }
+                                @if (buff.HPMaxModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.HPMaxModifier)">HP Max @FormatModifier(buff.HPMaxModifier)</span>
+                                }
+                                @if (buff.HPPercentModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.HPPercentModifier)">HP @FormatModifier(buff.HPPercentModifier)%</span>
+                                }
+                                @if (buff.HPMaxPercentModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.HPMaxPercentModifier)">HP Max @FormatModifier(buff.HPMaxPercentModifier)%</span>
+                                }
+                                @if (buff.MPModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.MPModifier)">MP @FormatModifier(buff.MPModifier)</span>
+                                }
+                                @if (buff.MPMaxModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.MPMaxModifier)">MP Max @FormatModifier(buff.MPMaxModifier)</span>
+                                }
+                                @if (buff.MPPercentModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.MPPercentModifier)">MP @FormatModifier(buff.MPPercentModifier)%</span>
+                                }
+                                @if (buff.MPMaxPercentModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.MPMaxPercentModifier)">MP Max @FormatModifier(buff.MPMaxPercentModifier)%</span>
+                                }
+                                @if (buff.XpGainsPercentModifier != 0)
+                                {
+                                    <span class="modifier-badge @GetModifierClass(buff.XpGainsPercentModifier)">XP @FormatModifier(buff.XpGainsPercentModifier)%</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                    <div class="buff-card-footer">
+                        <span class="badge @(buff.IsDebuff ? "bg-danger" : "bg-success")">
+                            @(buff.IsDebuff ? "Debuff" : "Buff")
+                        </span>
+                        <span class="buff-duration">
+                            <span class="bi bi-clock"></span> @FormatDuration(buff.DurationDays)
+                        </span>
+                        @if (buff.MaxStacks > 1)
+                        {
+                            <span class="buff-stacks">
+                                <span class="bi bi-stack"></span> x@(buff.MaxStacks)
+                            </span>
+                        }
+                    </div>
+                </div>
+                <div class="buff-card-actions" @onclick:stopPropagation="true">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEditModal(buff)" title="Edit">
+                        <span class="bi bi-pencil"></span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteBuff(buff.Id!)" title="Delete">
+                        <span class="bi bi-trash"></span>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content custom-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Buff" : "Create New Buff")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentBuff" OnValidSubmit="SaveBuff">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Name</label>
+                                    <InputText class="form-control" @bind-Value="currentBuff.Name" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <InputTextArea class="form-control" rows="3" @bind-Value="currentBuff.Description" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Type</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="buffType" id="buffTypePositive" checked="@(!currentBuff.IsDebuff)" @onchange="() => currentBuff.IsDebuff = false">
+                                        <label class="form-check-label" for="buffTypePositive">
+                                            Buff (Positive Effect)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="buffType" id="buffTypeNegative" checked="@currentBuff.IsDebuff" @onchange="() => currentBuff.IsDebuff = true">
+                                        <label class="form-check-label" for="buffTypeNegative">
+                                            Debuff (Negative Effect)
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Trigger</label>
+                                    <InputSelect class="form-select" @bind-Value="currentBuff.Trigger">
+                                        @foreach (BuffTrigger trigger in Enum.GetValues(typeof(BuffTrigger)))
+                                        {
+                                            <option value="@trigger">@trigger</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Max Stacks</label>
+                                    <InputNumber class="form-control" @bind-Value="currentBuff.MaxStacks" min="1" />
+                                    <small class="text-muted">Maximum number of times this buff can stack</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Duration (days)</label>
+                                    <InputNumber class="form-control" @bind-Value="currentBuff.DurationDays" min="1" />
+                                    <small class="text-muted">How long the buff lasts in days</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Buff Image</label>
+                                    <InputFile class="form-control" OnChange="HandleImageUpload" accept="image/*" />
+                                    @if (isUploading)
+                                    {
+                                        <small class="text-muted">Uploading image...</small>
+                                    }
+                                    @if (!string.IsNullOrEmpty(currentBuff.ImageData))
+                                    {
+                                        <div class="mt-2">
+                                            <img src="@GetImageDataUrl(currentBuff.ImageData, currentBuff.ImageContentType)" alt="Preview" style="max-width: 150px; max-height: 150px; border-radius: 8px;" />
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Stat Modifiers</h6>
+                                <p class="text-muted small">Configure how this buff affects character stats. Use positive numbers for buffs and negative for debuffs.</p>
+                                
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label">HP Modifier</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.HPModifier" />
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">HP %</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.HPPercentModifier" />
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label">HP Max Modifier</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.HPMaxModifier" />
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">HP Max %</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.HPMaxPercentModifier" />
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label">MP Modifier</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.MPModifier" />
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">MP %</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.MPPercentModifier" />
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label">MP Max Modifier</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.MPMaxModifier" />
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label">MP Max %</label>
+                                        <InputNumber class="form-control" @bind-Value="currentBuff.MPMaxPercentModifier" />
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">XP Gains % Modifier</label>
+                                    <InputNumber class="form-control" @bind-Value="currentBuff.XpGainsPercentModifier" />
+                                    <small class="text-muted">Percentage boost/reduction to XP gains</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isUploading">
+                                @(isEditMode ? "Update" : "Create") Buff
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<style>
+    .buff-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .buff-card {
+        background: #2d2d2d;
+        border-radius: 12px;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        border: 2px solid #28a745;
+    }
+
+    .buff-card.debuff-card {
+        border-color: #dc3545;
+    }
+
+    .buff-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .buff-card-image {
+        width: 100%;
+        height: 200px;
+        overflow: hidden;
+        background: #1a1a1a;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .buff-card-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .buff-card-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: #555;
+    }
+
+    .buff-card-content {
+        padding: 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .buff-card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #fff;
+        line-height: 1.3;
+    }
+
+    .buff-card-description {
+        font-size: 0.9rem;
+        color: #aaa;
+        margin: 0 0 1rem 0;
+        line-height: 1.5;
+        flex: 1;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .buff-modifiers-preview {
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 6px;
+    }
+
+    .buff-modifiers-preview small {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.75rem;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
+    .modifiers-preview-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+
+    .modifier-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.2rem 0.5rem;
+        background: rgba(100, 100, 100, 0.6);
+        color: white;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .modifier-badge.positive {
+        background: rgba(40, 167, 69, 0.6);
+        border-color: rgba(40, 167, 69, 0.8);
+    }
+
+    .modifier-badge.negative {
+        background: rgba(220, 53, 69, 0.6);
+        border-color: rgba(220, 53, 69, 0.8);
+    }
+
+    .buff-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .buff-duration, .buff-stacks {
+        font-size: 0.85rem;
+        color: #888;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .buff-card-actions {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        display: flex;
+        gap: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .buff-card:hover .buff-card-actions {
+        opacity: 1;
+    }
+
+    .buff-card-actions .btn {
+        background: rgba(255, 255, 255, 0.95);
+        border: none;
+        padding: 0.4rem 0.6rem;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .buff-card-actions .btn:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: scale(1.05);
+    }
+
+    .badge {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .custom-modal {
+        background-color: #ffffff;
+        color: #212529;
+    }
+
+    .custom-modal .modal-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .custom-modal .modal-title {
+        color: #212529;
+    }
+
+    .custom-modal .modal-body {
+        color: #212529;
+    }
+
+    .custom-modal .modal-footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .custom-modal .form-label {
+        color: #212529;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .custom-modal .form-control,
+    .custom-modal .form-select {
+        background-color: #ffffff;
+        color: #212529;
+        border: 1px solid #ced4da;
+    }
+
+    .custom-modal .form-control:focus,
+    .custom-modal .form-select:focus {
+        background-color: #ffffff;
+        color: #212529;
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .custom-modal .text-muted {
+        color: #6c757d !important;
+    }
+
+    .custom-modal .form-check-label {
+        color: #212529;
+    }
+
+    @@media (max-width: 768px) {
+        .buff-gallery {
+            grid-template-columns: 1fr;
+        }
+        
+        .buff-card-actions {
+            opacity: 1;
+        }
+    }
+</style>
+
+@code {
+    private List<BuffDto> buffs = new();
+    private BuffDto currentBuff = new();
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isLoading = true;
+    private bool isUploading = false;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBuffs();
+    }
+
+    private async Task LoadBuffs()
+    {
+        try
+        {
+            isLoading = true;
+            buffs = await BuffService.GetAllBuffsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load buffs: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        currentBuff = new BuffDto
+        {
+            Trigger = BuffTrigger.Manual,
+            MaxStacks = 1,
+            DurationDays = 7
+        };
+        isEditMode = false;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void ShowEditModal(BuffDto buff)
+    {
+        currentBuff = new BuffDto
+        {
+            Id = buff.Id,
+            ImageName = buff.ImageName,
+            ImageData = buff.ImageData,
+            ImageContentType = buff.ImageContentType,
+            IsDebuff = buff.IsDebuff,
+            Name = buff.Name,
+            Trigger = buff.Trigger,
+            MaxStacks = buff.MaxStacks,
+            Description = buff.Description,
+            HPModifier = buff.HPModifier,
+            HPMaxModifier = buff.HPMaxModifier,
+            HPPercentModifier = buff.HPPercentModifier,
+            HPMaxPercentModifier = buff.HPMaxPercentModifier,
+            MPModifier = buff.MPModifier,
+            MPMaxModifier = buff.MPMaxModifier,
+            MPPercentModifier = buff.MPPercentModifier,
+            MPMaxPercentModifier = buff.MPMaxPercentModifier,
+            XpGainsPercentModifier = buff.XpGainsPercentModifier,
+            DurationDays = buff.DurationDays
+        };
+        isEditMode = true;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentBuff = new();
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            isUploading = true;
+            var file = e.File;
+            var uploadResult = await BuffService.UploadImageAsync(file);
+            if (uploadResult != null)
+            {
+                currentBuff.ImageName = uploadResult.FileName;
+                currentBuff.ImageData = uploadResult.ImageData;
+                currentBuff.ImageContentType = uploadResult.ContentType;
+            }
+            else
+            {
+                errorMessage = "Failed to upload image";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading image: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task SaveBuff()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                var success = await BuffService.UpdateBuffAsync(currentBuff.Id!, currentBuff);
+                if (success)
+                {
+                    successMessage = "Buff updated successfully!";
+                    await LoadBuffs();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to update buff";
+                }
+            }
+            else
+            {
+                var created = await BuffService.CreateBuffAsync(currentBuff);
+                if (created != null)
+                {
+                    successMessage = "Buff created successfully!";
+                    await LoadBuffs();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to create buff";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving buff: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteBuff(string id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this buff?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var success = await BuffService.DeleteBuffAsync(id);
+            if (success)
+            {
+                successMessage = "Buff deleted successfully!";
+                await LoadBuffs();
+            }
+            else
+            {
+                errorMessage = "Failed to delete buff";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting buff: {ex.Message}";
+        }
+    }
+
+    private string GetImageDataUrl(string? imageData, string? contentType)
+    {
+        if (string.IsNullOrEmpty(imageData))
+            return string.Empty;
+        
+        var mimeType = !string.IsNullOrEmpty(contentType) ? contentType : "image/jpeg";
+        return $"data:{mimeType};base64,{imageData}";
+    }
+
+    private bool HasModifiers(BuffDto buff)
+    {
+        return buff.HPModifier != 0 || buff.HPMaxModifier != 0 || buff.HPPercentModifier != 0 ||
+               buff.HPMaxPercentModifier != 0 || buff.MPModifier != 0 || buff.MPMaxModifier != 0 ||
+               buff.MPPercentModifier != 0 || buff.MPMaxPercentModifier != 0 || buff.XpGainsPercentModifier != 0;
+    }
+
+    private string FormatModifier(int value)
+    {
+        return value > 0 ? $"+{value}" : value.ToString();
+    }
+
+    private string GetModifierClass(int value)
+    {
+        return value > 0 ? "positive" : value < 0 ? "negative" : "";
+    }
+
+    private string FormatDuration(int durationDays)
+    {
+        return durationDays == 1 ? "1 day" : $"{durationDays} days";
+    }
+}

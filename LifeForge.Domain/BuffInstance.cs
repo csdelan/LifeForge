@@ -11,7 +11,7 @@
     {
         public Buff Buff { get; }
         public DateTime StartTime { get; }
-        public DateTime EndTime => StartTime + Buff.Duration;
+        public DateTime EndTime => StartTime.AddDays(Buff.DurationDays);
         public string Name => Buff.Name;
         public BuffInstance(Buff buff)
         {

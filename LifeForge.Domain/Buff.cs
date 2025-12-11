@@ -45,7 +45,9 @@
 
         #endregion
 
-
-        public TimeSpan Duration { get; set; }
+        /// <summary>
+        /// Duration of the buff in days
+        /// </summary>
+        public int DurationDays { get; set; }
     }
 }

@@ -12,6 +12,7 @@ builder.Services.Configure<MongoDbSettings>(
 builder.Services.AddSingleton<IQuestRepository, QuestRepository>();
 builder.Services.AddSingleton<IQuestRunRepository, QuestRunRepository>();
 builder.Services.AddSingleton<ICharacterRepository, CharacterRepository>();
+builder.Services.AddSingleton<IBuffRepository, BuffRepository>();
 
 // Add application services
 builder.Services.AddScoped<IRewardApplicationService, RewardApplicationService>();

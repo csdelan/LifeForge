@@ -7,5 +7,6 @@ namespace LifeForge.DataAccess.Configuration
         public string QuestsCollectionName { get; set; } = "Quests";
         public string QuestRunsCollectionName { get; set; } = "QuestRuns";
         public string CharactersCollectionName { get; set; } = "Characters";
+        public string BuffsCollectionName { get; set; } = "Buffs";
     }
 }

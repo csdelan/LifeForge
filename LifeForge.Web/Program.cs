@@ -14,5 +14,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https:/
 builder.Services.AddScoped<QuestService>();
 builder.Services.AddScoped<QuestRunService>();
 builder.Services.AddScoped<CharacterService>();
+builder.Services.AddScoped<BuffService>();
 
 await builder.Build().RunAsync();
