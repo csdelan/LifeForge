@@ -9,5 +9,6 @@ namespace LifeForge.DataAccess.Configuration
         public string CharactersCollectionName { get; set; } = "Characters";
         public string BuffsCollectionName { get; set; } = "Buffs";
         public string BuffInstancesCollectionName { get; set; } = "BuffInstances";
+        public string ActionsCollectionName { get; set; } = "Actions";
     }
 }

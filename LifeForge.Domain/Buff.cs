@@ -8,6 +8,9 @@
 
     public interface IModifier
     {
+        /// <summary>
+        /// Represents the +/- modifier values for character stats
+        /// </summary>
         int HPModifier { get; }
         int HPMaxModifier { get; }
         int HPPercentModifier { get; }
@@ -16,6 +19,12 @@
         int MPMaxModifier { get; }
         int MPPercentModifier { get; }
         int MPMaxPercentModifier { get; }
+
+        /// <summary>
+        /// This modifier affects the percentage of experience points gained.  For instance,
+        /// if the character gains 3 XP from an action, and this modifier is set to 20,
+        /// the character would gain an additional 0.6 XP from the buff.
+        /// </summary>
         int XpGainsPercentModifier { get; }
     }
 

@@ -5,6 +5,7 @@
 @using LifeForge.Web.Models
 @inject CharacterService CharacterService
 @inject BuffInstanceService BuffInstanceService
+@inject ActionService ActionService
 @inject IJSRuntime JSRuntime
 
 <PageTitle>Character Sheet</PageTitle>
@@ -45,7 +46,7 @@
                         <div class="progress-bar">
                             <div class="progress-background hp-background"></div>
                             <div class="progress-fill hp-fill" style="width: @GetHPPercentage()%"></div>
-                            <span class="progress-text">@_character.HP / @_character.HPMax</span>
+                            <span class="progress-text">@((int)_character.HP) / @((int)_character.HPMax)</span>
                         </div>
                     </div>
                     <div class="resource-bar">
@@ -53,7 +54,7 @@
                         <div class="progress-bar">
                             <div class="progress-background mp-background"></div>
                             <div class="progress-fill mp-fill" style="width: @GetMPPercentage()%"></div>
-                            <span class="progress-text">@_character.MP / @_character.MPMax</span>
+                            <span class="progress-text">@((int)_character.MP) / @((int)_character.MPMax)</span>
                         </div>
                     </div>
                 </div>
@@ -133,7 +134,7 @@
                                     }
                                     @if (buff.Stacks > 1)
                                     {
-                                        <div class="active-buff-stacks-badge">x@buff.Stacks</div>
+                                        <div class="active-buff-stacks-badge">x@(buff.Stacks)</div>
                                     }
                                 </div>
                                 <div class="active-buff-info">
@@ -154,6 +155,25 @@
                 {
                     <p class="no-data">No active buffs</p>
                 }
+            </div>
+
+            <div class="actions-section">
+                <h3>Common Actions</h3>
+                <div class="actions-list">
+                    <div class="action-item">
+                        <div class="action-info">
+                            <span class="action-icon">??</span>
+                            <div class="action-details">
+                                <div class="action-name">Drink Alcoholic Beverage</div>
+                                <div class="action-description">Drink an alcoholic drink, resulting in Hangover and Alcohol Detoxing effects</div>
+                            </div>
+                        </div>
+                        <button class="btn-execute-action" @onclick="DrinkAlcoholicDrink" disabled="@isPerformingAction" title="Execute this action">
+                            <span class="bi bi-play-circle-fill"></span>
+                            Execute
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     }
@@ -188,13 +208,87 @@
     private List<BuffInstanceDto> activeBuffs = new();
     private bool isLoading = true;
     private bool isLoadingBuffs = true;
+    private bool isPerformingAction = false;
     private string? errorMessage;
     private string? successMessage;
+    private string? drinkActionId;
+    private string? hangoverBuffId;
+    private string? detoxBuffId;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCharacter();
         await LoadActiveBuffs();
+        await InitializeActions();
+    }
+
+    private async Task InitializeActions()
+    {
+        // This will be called to set up the action IDs
+        // In a real scenario, you'd load these from the database
+        // For now, we'll create them if they don't exist
+    }
+
+    private async Task DrinkAlcoholicDrink()
+    {
+        if (_character == null || string.IsNullOrEmpty(_character.Id))
+        {
+            errorMessage = "No character found";
+            return;
+        }
+
+        try
+        {
+            isPerformingAction = true;
+            
+            // Manually activate the Hangover and Alcohol Detoxing buffs
+            // First, try to find these buffs in the system
+            var buffService = new BuffService(new HttpClient { BaseAddress = new Uri("https://localhost:7001") });
+            var allBuffs = await buffService.GetAllBuffsAsync();
+            
+            var hangoverBuff = allBuffs.FirstOrDefault(b => b.Name == "Hangover");
+            var detoxBuff = allBuffs.FirstOrDefault(b => b.Name == "Alcohol Detoxing");
+            
+            if (hangoverBuff == null || detoxBuff == null)
+            {
+                errorMessage = "Required buffs (Hangover and Alcohol Detoxing) not found. Please create them first.";
+                return;
+            }
+
+            // Activate both buffs
+            var hangoverResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, hangoverBuff.Id!);
+            var detoxResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, detoxBuff.Id!);
+
+            if (hangoverResult?.Success == true && detoxResult?.Success == true)
+            {
+                successMessage = "?? You drank an alcoholic beverage! Effects: Hangover and Alcohol Detoxing activated.";
+                await LoadCharacter();
+                await LoadActiveBuffs();
+            }
+            else
+            {
+                errorMessage = "Failed to apply drinking effects. " + (hangoverResult?.ErrorMessage ?? detoxResult?.ErrorMessage ?? "");
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error performing action: {ex.Message}";
+        }
+        finally
+        {
+            isPerformingAction = false;
+        }
+    }
+
+    private string GetDrinkActionTooltip()
+    {
+        return @"Drink an alcoholic beverage
+
+This action will activate two buffs:
+• Hangover (negative effects)
+• Alcohol Detoxing (recovery process)
+
+Note: Make sure these buffs exist in your buff library.";
     }
 
     private async Task LoadCharacter()
@@ -294,32 +388,42 @@
             tooltip.AppendLine(buff.Description);
         }
         
-        // Add modifiers section
+        // Calculate total modifiers across all stacks
+        var stacks = buff.Stacks;
+        
+        // Add modifiers section (showing total across all stacks)
         var modifiers = new List<string>();
         
         if (buff.HPModifier != 0)
-            modifiers.Add($"HP {FormatModifier(buff.HPModifier)}");
+            modifiers.Add($"HP {FormatModifier(buff.HPModifier * stacks)} (per stack: {FormatModifier(buff.HPModifier)})");
         if (buff.HPMaxModifier != 0)
-            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxModifier)}");
+            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxModifier * stacks)} (per stack: {FormatModifier(buff.HPMaxModifier)})");
         if (buff.HPPercentModifier != 0)
-            modifiers.Add($"HP {FormatModifier(buff.HPPercentModifier)}%");
+            modifiers.Add($"HP {FormatModifier(buff.HPPercentModifier * stacks)}% (per stack: {FormatModifier(buff.HPPercentModifier)}%)");
         if (buff.HPMaxPercentModifier != 0)
-            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxPercentModifier)}%");
+            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buff.HPMaxPercentModifier)}%)");
         if (buff.MPModifier != 0)
-            modifiers.Add($"MP {FormatModifier(buff.MPModifier)}");
+            modifiers.Add($"MP {FormatModifier(buff.MPModifier * stacks)} (per stack: {FormatModifier(buff.MPModifier)})");
         if (buff.MPMaxModifier != 0)
-            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxModifier)}");
+            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxModifier * stacks)} (per stack: {FormatModifier(buff.MPMaxModifier)})");
         if (buff.MPPercentModifier != 0)
-            modifiers.Add($"MP {FormatModifier(buff.MPPercentModifier)}%");
+            modifiers.Add($"MP {FormatModifier(buff.MPPercentModifier * stacks)}% (per stack: {FormatModifier(buff.MPPercentModifier)}%)");
         if (buff.MPMaxPercentModifier != 0)
-            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxPercentModifier)}%");
+            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buff.MPMaxPercentModifier)}%)");
         if (buff.XpGainsPercentModifier != 0)
-            modifiers.Add($"XP Gains {FormatModifier(buff.XpGainsPercentModifier)}%");
+            modifiers.Add($"XP Gains {FormatModifier(buff.XpGainsPercentModifier * stacks)}% (per stack: {FormatModifier(buff.XpGainsPercentModifier)}%)");
         
         if (modifiers.Any())
         {
             tooltip.AppendLine();
-            tooltip.AppendLine("Modifiers:");
+            if (stacks > 1)
+            {
+                tooltip.AppendLine($"Total Modifiers (x{stacks} stacks):");
+            }
+            else
+            {
+                tooltip.AppendLine("Modifiers:");
+            }
             foreach (var modifier in modifiers)
             {
                 tooltip.AppendLine($"  {modifier}");
@@ -330,7 +434,7 @@
         if (buff.Stacks > 1)
         {
             tooltip.AppendLine();
-            tooltip.AppendLine($"Stacks: {buff.Stacks}");
+            tooltip.AppendLine($"Active Stacks: {buff.Stacks}");
         }
         
         return tooltip.ToString().TrimEnd();
@@ -353,13 +457,13 @@
     private double GetHPPercentage()
     {
         if (_character == null || _character.HPMax == 0) return 0;
-        return ((double)_character.HP / _character.HPMax) * 100;
+        return (double)(_character.HP / _character.HPMax) * 100;
     }
 
     private double GetMPPercentage()
     {
         if (_character == null || _character.MPMax == 0) return 0;
-        return ((double)_character.MP / _character.MPMax) * 100;
+        return (double)(_character.MP / _character.MPMax) * 100;
     }
 
     private double GetXPPercentage(Models.CharacterClassDto classSnapshot)

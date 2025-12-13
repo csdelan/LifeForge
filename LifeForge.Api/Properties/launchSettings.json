@@ -4,7 +4,8 @@
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      // Set to true to automatically open Swagger UI in browser on debug
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5001",
       "environmentVariables": {
@@ -14,7 +15,8 @@
     "https": {
       "commandName": "Project",
       "dotnetRunMessages": true,
-      "launchBrowser": true,
+      // Set to true to automatically open Swagger UI in browser on debug
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7001;http://localhost:5001",
       "environmentVariables": {

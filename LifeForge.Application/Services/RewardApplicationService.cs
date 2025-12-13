@@ -126,10 +126,10 @@ namespace LifeForge.Application.Services
         {
             var character = new Character("Hero of LifeForge")
             {
-                HP = 100,
-                HPMax = 100,
-                MP = 100,
-                MPMax = 100,
+                HP = 100m,
+                HPMax = 100m,
+                MP = 100m,
+                MPMax = 100m,
                 Strength = 10,
                 Discipline = 10,
                 Focus = 10

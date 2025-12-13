@@ -173,8 +173,8 @@ namespace LifeForge.Application.Services
         private async Task ApplyBuffModifiersToCharacter(CharacterEntity character, BuffEntity buff, int stacks)
         {
             // Calculate base values for percentage modifiers
-            int baseHPMax = character.HPMax;
-            int baseMPMax = character.MPMax;
+            decimal baseHPMax = character.HPMax;
+            decimal baseMPMax = character.MPMax;
 
             // Apply flat modifiers (multiplied by stacks)
             character.HP += buff.HPModifier * stacks;
@@ -185,25 +185,25 @@ namespace LifeForge.Application.Services
             // Apply percentage modifiers (multiplied by stacks)
             if (buff.HPPercentModifier != 0)
             {
-                int hpChange = (int)((character.HP * buff.HPPercentModifier / 100.0) * stacks);
+                decimal hpChange = (character.HP * buff.HPPercentModifier / 100.0m) * stacks;
                 character.HP += hpChange;
             }
 
             if (buff.HPMaxPercentModifier != 0)
             {
-                int hpMaxChange = (int)((baseHPMax * buff.HPMaxPercentModifier / 100.0) * stacks);
+                decimal hpMaxChange = (baseHPMax * buff.HPMaxPercentModifier / 100.0m) * stacks;
                 character.HPMax += hpMaxChange;
             }
 
             if (buff.MPPercentModifier != 0)
             {
-                int mpChange = (int)((character.MP * buff.MPPercentModifier / 100.0) * stacks);
+                decimal mpChange = (character.MP * buff.MPPercentModifier / 100.0m) * stacks;
                 character.MP += mpChange;
             }
 
             if (buff.MPMaxPercentModifier != 0)
             {
-                int mpMaxChange = (int)((baseMPMax * buff.MPMaxPercentModifier / 100.0) * stacks);
+                decimal mpMaxChange = (baseMPMax * buff.MPMaxPercentModifier / 100.0m) * stacks;
                 character.MPMax += mpMaxChange;
             }
 
@@ -218,8 +218,8 @@ namespace LifeForge.Application.Services
         private async Task RemoveBuffModifiersFromCharacter(CharacterEntity character, BuffInstanceEntity buffInstance)
         {
             // Calculate base values for percentage modifiers (before removal)
-            int baseHPMax = character.HPMax;
-            int baseMPMax = character.MPMax;
+            decimal baseHPMax = character.HPMax;
+            decimal baseMPMax = character.MPMax;
 
             int stacks = buffInstance.Stacks;
 
@@ -232,25 +232,25 @@ namespace LifeForge.Application.Services
             // Remove percentage modifiers (multiplied by stacks)
             if (buffInstance.HPPercentModifier != 0)
             {
-                int hpChange = (int)((character.HP * buffInstance.HPPercentModifier / 100.0) * stacks);
+                decimal hpChange = (character.HP * buffInstance.HPPercentModifier / 100.0m) * stacks;
                 character.HP -= hpChange;
             }
 
             if (buffInstance.HPMaxPercentModifier != 0)
             {
-                int hpMaxChange = (int)((baseHPMax * buffInstance.HPMaxPercentModifier / 100.0) * stacks);
+                decimal hpMaxChange = (baseHPMax * buffInstance.HPMaxPercentModifier / 100.0m) * stacks;
                 character.HPMax -= hpMaxChange;
             }
 
             if (buffInstance.MPPercentModifier != 0)
             {
-                int mpChange = (int)((character.MP * buffInstance.MPPercentModifier / 100.0) * stacks);
+                decimal mpChange = (character.MP * buffInstance.MPPercentModifier / 100.0m) * stacks;
                 character.MP -= mpChange;
             }
 
             if (buffInstance.MPMaxPercentModifier != 0)
             {
-                int mpMaxChange = (int)((baseMPMax * buffInstance.MPMaxPercentModifier / 100.0) * stacks);
+                decimal mpMaxChange = (baseMPMax * buffInstance.MPMaxPercentModifier / 100.0m) * stacks;
                 character.MPMax -= mpMaxChange;
             }
 

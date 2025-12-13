@@ -17,16 +17,16 @@ namespace LifeForge.DataAccess.Models
         public string Name { get; set; } = string.Empty;
 
         [BsonElement("hp")]
-        public int HP { get; set; }
+        public decimal HP { get; set; }
 
         [BsonElement("hpMax")]
-        public int HPMax { get; set; }
+        public decimal HPMax { get; set; }
 
         [BsonElement("mp")]
-        public int MP { get; set; }
+        public decimal MP { get; set; }
 
         [BsonElement("mpMax")]
-        public int MPMax { get; set; }
+        public decimal MPMax { get; set; }
 
         [BsonElement("strength")]
         public int Strength { get; set; }

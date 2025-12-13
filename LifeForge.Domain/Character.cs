@@ -12,22 +12,22 @@
         /// <summary>
         /// current hit points
         /// </summary>
-        public int HP { get; set; }
+        public decimal HP { get; set; }
 
         /// <summary>
         /// Maximum hit points
         /// </summary>
-        public int HPMax { get; set; }
+        public decimal HPMax { get; set; }
 
         /// <summary>
         /// Current mana points
         /// </summary>
-        public int MP { get; set; }
+        public decimal MP { get; set; }
 
         /// <summary>
         /// Maximum mana points
         /// </summary>
-        public int MPMax { get; set; }
+        public decimal MPMax { get; set; }
         public int Strength { get; set; }
         public int Discipline { get; set; }
         public int Focus { get; set; }

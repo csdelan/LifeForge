@@ -6,10 +6,10 @@ namespace LifeForge.Api.Models
     {
         public string? Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public int HP { get; set; }
-        public int HPMax { get; set; }
-        public int MP { get; set; }
-        public int MPMax { get; set; }
+        public decimal HP { get; set; }
+        public decimal HPMax { get; set; }
+        public decimal MP { get; set; }
+        public decimal MPMax { get; set; }
         public int Strength { get; set; }
         public int Discipline { get; set; }
         public int Focus { get; set; }
@@ -28,10 +28,10 @@ namespace LifeForge.Api.Models
     public class UpdateCharacterDto
     {
         public string Name { get; set; } = string.Empty;
-        public int HP { get; set; }
-        public int HPMax { get; set; }
-        public int MP { get; set; }
-        public int MPMax { get; set; }
+        public decimal HP { get; set; }
+        public decimal HPMax { get; set; }
+        public decimal MP { get; set; }
+        public decimal MPMax { get; set; }
         public int Strength { get; set; }
         public int Discipline { get; set; }
         public int Focus { get; set; }

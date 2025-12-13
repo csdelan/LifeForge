@@ -16,5 +16,6 @@ builder.Services.AddScoped<QuestRunService>();
 builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<BuffService>();
 builder.Services.AddScoped<BuffInstanceService>();
+builder.Services.AddScoped<ActionService>();
 
 await builder.Build().RunAsync();

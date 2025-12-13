@@ -14,6 +14,7 @@ builder.Services.AddSingleton<IQuestRunRepository, QuestRunRepository>();
 builder.Services.AddSingleton<ICharacterRepository, CharacterRepository>();
 builder.Services.AddSingleton<IBuffRepository, BuffRepository>();
 builder.Services.AddSingleton<IBuffInstanceRepository, BuffInstanceRepository>();
+builder.Services.AddSingleton<IActionRepository, ActionRepository>();
 
 // Add application services
 builder.Services.AddScoped<IRewardApplicationService, RewardApplicationService>();
@@ -57,25 +58,6 @@ app.UseCors("AllowBlazorWasm");
 app.UseAuthorization();
 
 app.MapControllers();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
 
 app.Run();
 
