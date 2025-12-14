@@ -114,11 +114,41 @@ namespace LifeForge.Api.BackgroundServices
                     characterExpiredBuffs.Count, characterId);
             }
 
-            // Step 3: Recalculate aggregate modifiers
+            // Step 3: Regenerate HP (add 5 HP up to HPMax)
+            await RegenerateCharacterHPAsync(characterId);
+
+            // Step 4: Recalculate aggregate modifiers
             await buffAggregationService.UpdateCharacterAggregateModifiersAsync(characterId);
 
-            // Step 4: Clean up expired buffs (optional - delete buffs that have been expired for more than 7 days)
+            // Step 5: Clean up expired buffs (optional - delete buffs that have been expired for more than 7 days)
             await CleanupOldExpiredBuffsAsync(characterId, buffInstanceRepository);
+        }
+
+        private async Task RegenerateCharacterHPAsync(string characterId)
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var characterRepository = scope.ServiceProvider.GetRequiredService<ICharacterRepository>();
+
+            try
+            {
+                var characterEntity = await characterRepository.GetCharacterByIdAsync(characterId);
+                if (characterEntity != null)
+                {
+                    var oldHP = characterEntity.HP;
+                    characterEntity.HP = Math.Min(characterEntity.HP + 5, characterEntity.HPMax);
+                    
+                    if (characterEntity.HP > oldHP)
+                    {
+                        await characterRepository.UpdateCharacterAsync(characterId, characterEntity);
+                        _logger.LogInformation("Regenerated HP for character {CharacterId}: {OldHP} -> {NewHP} (Max: {HPMax})",
+                            characterId, oldHP, characterEntity.HP, characterEntity.HPMax);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error regenerating HP for character {CharacterId}", characterId);
+            }
         }
 
         private async Task CleanupOldExpiredBuffsAsync(string characterId, IBuffInstanceRepository buffInstanceRepository)

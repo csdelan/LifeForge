@@ -1,4 +1,4 @@
-@page "/"
+﻿@page "/"
 @page "/character"
 @using LifeForge.Domain
 @using LifeForge.Web.Services
@@ -12,8 +12,6 @@
 <PageTitle>Character Sheet</PageTitle>
 
 <div class="character-sheet">
-    <h1>Character Sheet</h1>
-
     @if (showDebugTools)
     {
         <!-- Manual Buff Processing Trigger (Development Only) -->
@@ -26,7 +24,7 @@
                 }
                 else
                 {
-                    <span>? Manually Trigger Buff Processing</span>
+                    <span>▶️ Manually Trigger Buff Processing</span>
                 }
             </button>
             @if (!string.IsNullOrEmpty(buffProcessingMessage))
@@ -65,16 +63,16 @@
                 <div class="stat-section">
                     <h3>Resources</h3>
                     <div class="resource-bar">
-                        <label>HP @if (HasBuffModifiers()) { <small title="Base: @((int)_character.HP)">(Buffed)</small> }</label>
-                        <div class="progress-bar">
+                        <label title="@GetResourceTooltip("HP")">HP</label>
+                        <div class="progress-bar" title="@GetResourceTooltip("HP")">
                             <div class="progress-background hp-background"></div>
                             <div class="progress-fill hp-fill" style="width: @GetHPPercentage()%"></div>
                             <span class="progress-text">@((int)_character.EffectiveHP) / @((int)_character.EffectiveHPMax)</span>
                         </div>
                     </div>
                     <div class="resource-bar">
-                        <label>MP @if (HasBuffModifiers()) { <small title="Base: @((int)_character.MP)">(Buffed)</small> }</label>
-                        <div class="progress-bar">
+                        <label title="@GetResourceTooltip("MP")">MP</label>
+                        <div class="progress-bar" title="@GetResourceTooltip("MP")">
                             <div class="progress-background mp-background"></div>
                             <div class="progress-fill mp-fill" style="width: @GetMPPercentage()%"></div>
                             <span class="progress-text">@((int)_character.EffectiveMP) / @((int)_character.EffectiveMPMax)</span>
@@ -83,51 +81,55 @@
                 </div>
             </div>
 
-            <div class="wealth-section">
-                <h3>Wealth</h3>
-                <div class="currency-list">
-                    @if (_character.Currencies.Any())
-                    {
-                        @foreach (var currency in _character.Currencies)
+            <div class="wealth-classes-grid">
+                <div class="wealth-section">
+                    <h3>Wealth</h3>
+                    <div class="currency-list">
+                        @if (_character.Currencies.Any())
                         {
-                            <div class="currency-item">
-                                <span class="currency-name">@currency.Key:</span>
-                                <span class="currency-amount">@currency.Value</span>
-                            </div>
+                            @foreach (var currency in _character.Currencies)
+                            {
+                                <div class="currency-item">
+                                    <span class="currency-name">@currency.Key:</span>
+                                    <span class="currency-amount">@currency.Value</span>
+                                </div>
+                            }
                         }
-                    }
-                    else
-                    {
-                        <p class="no-data">No currencies yet</p>
-                    }
-                </div>
-            </div>
-
-            <div class="classes-section">
-                <h3>Classes</h3>
-                <div class="class-list">
-                    @if (_character.ClassProfiles.Any())
-                    {
-                        @foreach (var classProfile in _character.ClassProfiles)
+                        else
                         {
-                            <div class="class-item">
-                                <h4>@classProfile.Value.ClassName</h4>
-                                <div class="class-details">
-                                    <span>Level: @classProfile.Value.Level</span>
-                                    <div class="xp-bar">
-                                        <div class="progress-bar small">
-                                            <div class="progress-fill xp-fill" style="width: @GetXPPercentage(classProfile.Value)%"></div>
-                                            <span class="progress-text small">@classProfile.Value.CurrentXp / @classProfile.Value.XpToNextLevel</span>
+                            <p class="no-data">No currencies yet</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="classes-section">
+                    <h3>Classes</h3>
+                    <div class="class-list">
+                        @if (_character.ClassProfiles.Any())
+                        {
+                            @foreach (var classProfile in _character.ClassProfiles)
+                            {
+                                <div class="class-item">
+                                    <h4>@classProfile.Value.ClassName</h4>
+                                    <div class="class-details">
+                                        <div class="class-level-row">
+                                            <span class="class-level-label">Level @classProfile.Value.Level</span>
+                                            <div class="xp-bar">
+                                                <div class="progress-bar small">
+                                                    <div class="progress-fill xp-fill" style="width: @GetXPPercentage(classProfile.Value)%"></div>
+                                                    <span class="progress-text small">@classProfile.Value.CurrentXp / @classProfile.Value.XpToNextLevel</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            }
                         }
-                    }
-                    else
-                    {
-                        <p class="no-data">No classes yet</p>
-                    }
+                        else
+                        {
+                            <p class="no-data">No classes yet</p>
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -207,7 +209,7 @@
                                     }
                                     else
                                     {
-                                        <span class="action-icon">?</span>
+                                        <span class="action-icon">⚡</span>
                                     }
                                     <div class="action-details">
                                         <div class="action-name">@action.Name</div>
@@ -446,7 +448,7 @@
 
             if (result?.Success == true && result.ActivatedBuffs.Any())
             {
-                var actionIcon = !string.IsNullOrEmpty(action.Icon) ? action.Icon : "?";
+                var actionIcon = !string.IsNullOrEmpty(action.Icon) ? action.Icon : "⚡";
                 successMessage = $"{actionIcon} {action.Name} executed successfully! {result.ActivatedBuffs.Count} buff(s) activated.";
                 await LoadCharacter();
                 await LoadActiveBuffs();
@@ -565,6 +567,80 @@
                mods.MPPercentModifier != 0 || mods.MPMaxPercentModifier != 0;
     }
 
+    private string GetResourceTooltip(string resourceType)
+    {
+        if (_character == null) return string.Empty;
+
+        if (resourceType == "HP")
+        {
+            if (!HasBuffModifiers())
+                return string.Empty;
+
+            var tooltip = new System.Text.StringBuilder();
+            tooltip.AppendLine($"Current: {(int)_character.EffectiveHP} / {(int)_character.EffectiveHPMax}");
+            tooltip.AppendLine($"Base (Unbuffed): {(int)_character.HP} / {(int)_character.HPMax}");
+            
+            var mods = _character.ActiveBuffModifiers;
+            var modList = new List<string>();
+            
+            if (mods.HPModifier != 0)
+                modList.Add($"HP {FormatModifier(mods.HPModifier)}");
+            if (mods.HPMaxModifier != 0)
+                modList.Add($"HP Max {FormatModifier(mods.HPMaxModifier)}");
+            if (mods.HPPercentModifier != 0)
+                modList.Add($"HP {FormatModifier(mods.HPPercentModifier)}%");
+            if (mods.HPMaxPercentModifier != 0)
+                modList.Add($"HP Max {FormatModifier(mods.HPMaxPercentModifier)}%");
+            
+            if (modList.Any())
+            {
+                tooltip.AppendLine();
+                tooltip.AppendLine("Active Modifiers:");
+                foreach (var mod in modList)
+                {
+                    tooltip.AppendLine($"  {mod}");
+                }
+            } 
+            
+            return tooltip.ToString().TrimEnd();
+        }
+        else if (resourceType == "MP")
+        {
+            if (!HasBuffModifiers())
+                return string.Empty;
+
+            var tooltip = new System.Text.StringBuilder();
+            tooltip.AppendLine($"Current: {(int)_character.EffectiveMP} / {(int)_character.EffectiveMPMax}");
+            tooltip.AppendLine($"Base (Unbuffed): {(int)_character.MP} / {(int)_character.MPMax}");
+            
+            var mods = _character.ActiveBuffModifiers;
+            var modList = new List<string>();
+            
+            if (mods.MPModifier != 0)
+                modList.Add($"MP {FormatModifier(mods.MPModifier)}");
+            if (mods.MPMaxModifier != 0)
+                modList.Add($"MP Max {FormatModifier(mods.MPMaxModifier)}");
+            if (mods.MPPercentModifier != 0)
+                modList.Add($"MP {FormatModifier(mods.MPPercentModifier)}%");
+            if (mods.MPMaxPercentModifier != 0)
+                modList.Add($"MP Max {FormatModifier(mods.MPMaxPercentModifier)}%");
+            
+            if (modList.Any())
+            {
+                tooltip.AppendLine();
+                tooltip.AppendLine("Active Modifiers:");
+                foreach (var mod in modList)
+                {
+                    tooltip.AppendLine($"  {mod}");
+                }
+            }
+            
+            return tooltip.ToString().TrimEnd();
+        }
+
+        return string.Empty;
+    }
+
     private async Task TriggerBuffProcessing()
     {
         try
@@ -577,7 +653,7 @@
             
             if (response.IsSuccessStatusCode)
             {
-                buffProcessingMessage = "? Buff processing completed successfully! Reloading character...";
+                buffProcessingMessage = "✅ Buff processing completed successfully! Reloading character...";
                 await Task.Delay(500);
                 await LoadCharacter();
                 await LoadActiveBuffs();
@@ -585,13 +661,13 @@
             }
             else
             {
-                buffProcessingMessage = "? Failed to process buffs";
+                buffProcessingMessage = "❌ Failed to process buffs";
                 errorMessage = "Failed to trigger buff processing";
             }
         }
         catch (Exception ex)
         {
-            buffProcessingMessage = $"? Error: {ex.Message}";
+            buffProcessingMessage = $"❌ Error: {ex.Message}";
             errorMessage = $"Error triggering buff processing: {ex.Message}";
         }
         finally
