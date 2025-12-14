@@ -17,5 +17,6 @@ builder.Services.AddScoped<CharacterService>();
 builder.Services.AddScoped<BuffService>();
 builder.Services.AddScoped<BuffInstanceService>();
 builder.Services.AddScoped<ActionService>();
+builder.Services.AddSingleton<AudioService>();
 
 await builder.Build().RunAsync();

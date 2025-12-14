@@ -5,6 +5,7 @@
 @inject BuffService BuffService
 @inject BuffInstanceService BuffInstanceService
 @inject CharacterService CharacterService
+@inject AudioService AudioService
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
@@ -594,6 +595,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadBuffs();
+        await AudioService.InitializeAsync();
         objRef = DotNetObjectReference.Create(this);
     }
 
@@ -794,6 +796,10 @@ else
             
             if (result != null && result.Success)
             {
+                // Play appropriate sound effect
+                var soundEffect = buff.IsDebuff ? SoundEffect.DebuffApplied : SoundEffect.BuffApplied;
+                await AudioService.PlaySoundAsync(soundEffect);
+                
                 var modifiersText = result.ModifiersApplied.Any() 
                     ? " Applied: " + string.Join(", ", result.ModifiersApplied.Select(m => $"{m.Key} {(m.Value > 0 ? "+" : "")}{m.Value}"))
                     : "";
