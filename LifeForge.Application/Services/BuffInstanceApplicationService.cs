@@ -1,6 +1,7 @@
 using LifeForge.Application.Models;
 using LifeForge.DataAccess.Repositories;
 using LifeForge.DataAccess.Models;
+using LifeForge.Domain;
 
 namespace LifeForge.Application.Services
 {
@@ -9,15 +10,18 @@ namespace LifeForge.Application.Services
         private readonly IBuffInstanceRepository _buffInstanceRepository;
         private readonly IBuffRepository _buffRepository;
         private readonly ICharacterRepository _characterRepository;
+        private readonly IBuffAggregationService _buffAggregationService;
 
         public BuffInstanceApplicationService(
             IBuffInstanceRepository buffInstanceRepository,
             IBuffRepository buffRepository,
-            ICharacterRepository characterRepository)
+            ICharacterRepository characterRepository,
+            IBuffAggregationService buffAggregationService)
         {
             _buffInstanceRepository = buffInstanceRepository;
             _buffRepository = buffRepository;
             _characterRepository = characterRepository;
+            _buffAggregationService = buffAggregationService;
         }
 
         public async Task<BuffInstanceApplicationResult> ActivateBuffAsync(string characterId, string buffId)
@@ -44,37 +48,8 @@ namespace LifeForge.Application.Services
                     return result;
                 }
 
-                // 3. Check if buff can stack
-                var existingBuffs = await _buffInstanceRepository.GetActiveBuffInstancesByCharacterIdAsync(characterId);
-                var existingBuff = existingBuffs.FirstOrDefault(b => b.BuffId == buffId && b.IsActive);
-                
-                if (existingBuff != null)
-                {
-                    // Check if we can stack
-                    if (existingBuff.Stacks < buff.MaxStacks)
-                    {
-                        // Increment stacks
-                        existingBuff.Stacks++;
-                        existingBuff.UpdatedAt = DateTime.UtcNow;
-                        await _buffInstanceRepository.UpdateBuffInstanceAsync(existingBuff.Id!, existingBuff);
-                        
-                        // Apply modifiers again for the new stack
-                        await ApplyBuffModifiersToCharacter(character, buff, existingBuff.Stacks);
-                        
-                        result.Success = true;
-                        result.BuffInstanceId = existingBuff.Id;
-                        result.ModifiersApplied = GetModifiersDictionary(buff);
-                        return result;
-                    }
-                    else
-                    {
-                        result.Success = false;
-                        result.ErrorMessage = $"Buff '{buff.Name}' is already at maximum stacks ({buff.MaxStacks})";
-                        return result;
-                    }
-                }
-
-                // 4. Create new buff instance
+                // 3. Create new buff instance with Pending status
+                // It will be activated at next midnight job run
                 var startTime = DateTime.UtcNow;
                 var endTime = startTime.AddDays(buff.DurationDays);
 
@@ -89,6 +64,7 @@ namespace LifeForge.Application.Services
                     EndTime = endTime,
                     Stacks = 1,
                     IsActive = true,
+                    Status = BuffInstanceStatus.Pending,
                     HPModifier = buff.HPModifier,
                     HPMaxModifier = buff.HPMaxModifier,
                     HPPercentModifier = buff.HPPercentModifier,
@@ -103,9 +79,6 @@ namespace LifeForge.Application.Services
                 };
 
                 var createdInstance = await _buffInstanceRepository.CreateBuffInstanceAsync(buffInstance);
-
-                // 5. Apply buff modifiers to character
-                await ApplyBuffModifiersToCharacter(character, buff, 1);
 
                 result.Success = true;
                 result.BuffInstanceId = createdInstance.Id;
@@ -151,11 +124,11 @@ namespace LifeForge.Application.Services
                     return result;
                 }
 
-                // 3. Remove buff modifiers from character
-                await RemoveBuffModifiersFromCharacter(character, buffInstance);
+                // 3. Delete the buff instance (manual deactivation is immediate)
+                await _buffInstanceRepository.DeleteBuffInstanceAsync(buffInstanceId);
 
-                // 4. Deactivate the buff instance
-                await _buffInstanceRepository.DeactivateBuffInstanceAsync(buffInstanceId);
+                // 4. Immediately recalculate aggregate modifiers (manual operations trigger immediate update)
+                await _buffAggregationService.UpdateCharacterAggregateModifiersAsync(characterId);
 
                 result.Success = true;
                 result.BuffInstanceId = buffInstanceId;
@@ -168,98 +141,6 @@ namespace LifeForge.Application.Services
                 result.ErrorMessage = $"Error deactivating buff: {ex.Message}";
                 return result;
             }
-        }
-
-        private async Task ApplyBuffModifiersToCharacter(CharacterEntity character, BuffEntity buff, int stacks)
-        {
-            // Calculate base values for percentage modifiers
-            decimal baseHPMax = character.HPMax;
-            decimal baseMPMax = character.MPMax;
-
-            // Apply flat modifiers (multiplied by stacks)
-            character.HP += buff.HPModifier * stacks;
-            character.HPMax += buff.HPMaxModifier * stacks;
-            character.MP += buff.MPModifier * stacks;
-            character.MPMax += buff.MPMaxModifier * stacks;
-
-            // Apply percentage modifiers (multiplied by stacks)
-            if (buff.HPPercentModifier != 0)
-            {
-                decimal hpChange = (character.HP * buff.HPPercentModifier / 100.0m) * stacks;
-                character.HP += hpChange;
-            }
-
-            if (buff.HPMaxPercentModifier != 0)
-            {
-                decimal hpMaxChange = (baseHPMax * buff.HPMaxPercentModifier / 100.0m) * stacks;
-                character.HPMax += hpMaxChange;
-            }
-
-            if (buff.MPPercentModifier != 0)
-            {
-                decimal mpChange = (character.MP * buff.MPPercentModifier / 100.0m) * stacks;
-                character.MP += mpChange;
-            }
-
-            if (buff.MPMaxPercentModifier != 0)
-            {
-                decimal mpMaxChange = (baseMPMax * buff.MPMaxPercentModifier / 100.0m) * stacks;
-                character.MPMax += mpMaxChange;
-            }
-
-            // Ensure HP/MP don't exceed max or go below 0
-            character.HP = Math.Max(0, Math.Min(character.HP, character.HPMax));
-            character.MP = Math.Max(0, Math.Min(character.MP, character.MPMax));
-
-            // Update character in database
-            await _characterRepository.UpdateCharacterAsync(character.Id!, character);
-        }
-
-        private async Task RemoveBuffModifiersFromCharacter(CharacterEntity character, BuffInstanceEntity buffInstance)
-        {
-            // Calculate base values for percentage modifiers (before removal)
-            decimal baseHPMax = character.HPMax;
-            decimal baseMPMax = character.MPMax;
-
-            int stacks = buffInstance.Stacks;
-
-            // Remove flat modifiers (multiplied by stacks)
-            character.HP -= buffInstance.HPModifier * stacks;
-            character.HPMax -= buffInstance.HPMaxModifier * stacks;
-            character.MP -= buffInstance.MPModifier * stacks;
-            character.MPMax -= buffInstance.MPMaxModifier * stacks;
-
-            // Remove percentage modifiers (multiplied by stacks)
-            if (buffInstance.HPPercentModifier != 0)
-            {
-                decimal hpChange = (character.HP * buffInstance.HPPercentModifier / 100.0m) * stacks;
-                character.HP -= hpChange;
-            }
-
-            if (buffInstance.HPMaxPercentModifier != 0)
-            {
-                decimal hpMaxChange = (baseHPMax * buffInstance.HPMaxPercentModifier / 100.0m) * stacks;
-                character.HPMax -= hpMaxChange;
-            }
-
-            if (buffInstance.MPPercentModifier != 0)
-            {
-                decimal mpChange = (character.MP * buffInstance.MPPercentModifier / 100.0m) * stacks;
-                character.MP -= mpChange;
-            }
-
-            if (buffInstance.MPMaxPercentModifier != 0)
-            {
-                decimal mpMaxChange = (baseMPMax * buffInstance.MPMaxPercentModifier / 100.0m) * stacks;
-                character.MPMax -= mpMaxChange;
-            }
-
-            // Ensure HP/MP don't exceed max or go below 0
-            character.HP = Math.Max(0, Math.Min(character.HP, character.HPMax));
-            character.MP = Math.Max(0, Math.Min(character.MP, character.MPMax));
-
-            // Update character in database
-            await _characterRepository.UpdateCharacterAsync(character.Id!, character);
         }
 
         private Dictionary<string, int> GetModifiersDictionary(BuffEntity buff)

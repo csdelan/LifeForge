@@ -26,6 +26,21 @@
         /// the character would gain an additional 0.6 XP from the buff.
         /// </summary>
         int XpGainsPercentModifier { get; }
+
+        /// <summary>
+        /// Adds another modifier's values to this modifier
+        /// </summary>
+        void ApplyModifier(IModifier other);
+
+        /// <summary>
+        /// Subtracts another modifier's values from this modifier
+        /// </summary>
+        void RemoveModifier(IModifier other);
+
+        /// <summary>
+        /// Creates a deep copy of this modifier
+        /// </summary>
+        IModifier Clone();
     }
 
     /// <summary>
@@ -58,5 +73,54 @@
         /// Duration of the buff in days
         /// </summary>
         public int DurationDays { get; set; }
+
+        public void ApplyModifier(IModifier other)
+        {
+            HPModifier += other.HPModifier;
+            HPMaxModifier += other.HPMaxModifier;
+            HPPercentModifier += other.HPPercentModifier;
+            HPMaxPercentModifier += other.HPMaxPercentModifier;
+            MPModifier += other.MPModifier;
+            MPMaxModifier += other.MPMaxModifier;
+            MPPercentModifier += other.MPPercentModifier;
+            MPMaxPercentModifier += other.MPMaxPercentModifier;
+            XpGainsPercentModifier += other.XpGainsPercentModifier;
+        }
+
+        public void RemoveModifier(IModifier other)
+        {
+            HPModifier -= other.HPModifier;
+            HPMaxModifier -= other.HPMaxModifier;
+            HPPercentModifier -= other.HPPercentModifier;
+            HPMaxPercentModifier -= other.HPMaxPercentModifier;
+            MPModifier -= other.MPModifier;
+            MPMaxModifier -= other.MPMaxModifier;
+            MPPercentModifier -= other.MPPercentModifier;
+            MPMaxPercentModifier -= other.MPMaxPercentModifier;
+            XpGainsPercentModifier -= other.XpGainsPercentModifier;
+        }
+
+        public IModifier Clone()
+        {
+            return new Buff
+            {
+                ImagePath = this.ImagePath,
+                IsDebuff = this.IsDebuff,
+                Name = this.Name,
+                Trigger = this.Trigger,
+                MaxStacks = this.MaxStacks,
+                Description = this.Description,
+                HPModifier = this.HPModifier,
+                HPMaxModifier = this.HPMaxModifier,
+                HPPercentModifier = this.HPPercentModifier,
+                HPMaxPercentModifier = this.HPMaxPercentModifier,
+                MPModifier = this.MPModifier,
+                MPMaxModifier = this.MPMaxModifier,
+                MPPercentModifier = this.MPPercentModifier,
+                MPMaxPercentModifier = this.MPMaxPercentModifier,
+                XpGainsPercentModifier = this.XpGainsPercentModifier,
+                DurationDays = this.DurationDays
+            };
+        }
     }
 }

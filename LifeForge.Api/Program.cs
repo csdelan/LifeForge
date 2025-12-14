@@ -1,6 +1,7 @@
 using LifeForge.DataAccess.Configuration;
 using LifeForge.DataAccess.Repositories;
 using LifeForge.Application.Services;
+using LifeForge.Api.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,11 @@ builder.Services.AddSingleton<IActionRepository, ActionRepository>();
 // Add application services
 builder.Services.AddScoped<IRewardApplicationService, RewardApplicationService>();
 builder.Services.AddScoped<IBuffInstanceApplicationService, BuffInstanceApplicationService>();
+builder.Services.AddScoped<IBuffAggregationService, BuffAggregationService>();
+
+// Add background services
+builder.Services.AddHostedService<MidnightBuffProcessingService>();
+builder.Services.AddSingleton<MidnightBuffProcessingService>();
 
 // Add controllers
 builder.Services.AddControllers();

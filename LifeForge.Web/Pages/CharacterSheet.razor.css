@@ -321,6 +321,20 @@
     gap: 0.25rem;
 }
 
+.buff-status-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.buff-status-badge.pending {
+    background: #ffc107;
+    color: #000;
+}
+
 .btn-end-buff {
     position: absolute;
     top: 4px;

@@ -1,6 +1,7 @@
 using MongoDB.Driver;
 using LifeForge.DataAccess.Configuration;
 using LifeForge.DataAccess.Models;
+using LifeForge.Domain;
 using Microsoft.Extensions.Options;
 
 namespace LifeForge.DataAccess.Repositories
@@ -62,6 +63,35 @@ namespace LifeForge.DataAccess.Repositories
 
             var result = await _buffInstancesCollection.UpdateOneAsync(x => x.Id == id, update);
             return result.IsAcknowledged && result.ModifiedCount > 0;
+        }
+
+        public async Task<List<BuffInstanceEntity>> GetPendingBuffInstancesAsync()
+        {
+            return await _buffInstancesCollection
+                .Find(x => x.Status == BuffInstanceStatus.Pending)
+                .ToListAsync();
+        }
+
+        public async Task<List<BuffInstanceEntity>> GetExpiredBuffInstancesAsync()
+        {
+            var now = DateTime.UtcNow;
+            return await _buffInstancesCollection
+                .Find(x => x.Status == BuffInstanceStatus.Active && x.EndTime <= now)
+                .ToListAsync();
+        }
+
+        public async Task<bool> BulkUpdateStatusAsync(List<string> buffInstanceIds, BuffInstanceStatus newStatus)
+        {
+            if (buffInstanceIds == null || !buffInstanceIds.Any())
+                return true;
+
+            var filter = Builders<BuffInstanceEntity>.Filter.In(x => x.Id, buffInstanceIds);
+            var update = Builders<BuffInstanceEntity>.Update
+                .Set(x => x.Status, newStatus)
+                .Set(x => x.UpdatedAt, DateTime.UtcNow);
+
+            var result = await _buffInstancesCollection.UpdateManyAsync(filter, update);
+            return result.IsAcknowledged;
         }
     }
 }

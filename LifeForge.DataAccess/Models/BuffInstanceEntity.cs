@@ -42,6 +42,10 @@ namespace LifeForge.DataAccess.Models
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;
 
+        [BsonElement("status")]
+        [BsonRepresentation(BsonType.String)]
+        public BuffInstanceStatus Status { get; set; } = BuffInstanceStatus.Pending;
+
         // Store buff modifiers for when we need to unapply them
         [BsonElement("hpModifier")]
         public int HPModifier { get; set; }

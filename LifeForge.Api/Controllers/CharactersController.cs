@@ -30,6 +30,7 @@ namespace LifeForge.Api.Controllers
                     return NotFound("No character found. Complete a quest to create your character!");
                 }
 
+                var domainCharacter = character.ToDomain();
                 var characterDto = new CharacterDto
                 {
                     Id = character.Id,
@@ -51,7 +52,23 @@ namespace LifeForge.Api.Controllers
                             CurrentXp = kvp.Value.CurrentXp,
                             XpToNextLevel = kvp.Value.XpToNextLevel
                         }
-                    )
+                    ),
+                    ActiveBuffModifiers = new AggregateModifierDto
+                    {
+                        HPModifier = character.ActiveBuffModifiers.HPModifier,
+                        HPMaxModifier = character.ActiveBuffModifiers.HPMaxModifier,
+                        HPPercentModifier = character.ActiveBuffModifiers.HPPercentModifier,
+                        HPMaxPercentModifier = character.ActiveBuffModifiers.HPMaxPercentModifier,
+                        MPModifier = character.ActiveBuffModifiers.MPModifier,
+                        MPMaxModifier = character.ActiveBuffModifiers.MPMaxModifier,
+                        MPPercentModifier = character.ActiveBuffModifiers.MPPercentModifier,
+                        MPMaxPercentModifier = character.ActiveBuffModifiers.MPMaxPercentModifier,
+                        XpGainsPercentModifier = character.ActiveBuffModifiers.XpGainsPercentModifier
+                    },
+                    EffectiveHP = domainCharacter.EffectiveHP,
+                    EffectiveHPMax = domainCharacter.EffectiveHPMax,
+                    EffectiveMP = domainCharacter.EffectiveMP,
+                    EffectiveMPMax = domainCharacter.EffectiveMPMax
                 };
 
                 return Ok(characterDto);
@@ -69,28 +86,48 @@ namespace LifeForge.Api.Controllers
             try
             {
                 var characters = await _characterRepository.GetAllCharactersAsync();
-                var characterDtos = characters.Select(character => new CharacterDto
+                var characterDtos = characters.Select(character =>
                 {
-                    Id = character.Id,
-                    Name = character.Name,
-                    HP = character.HP,
-                    HPMax = character.HPMax,
-                    MP = character.MP,
-                    MPMax = character.MPMax,
-                    Strength = character.Strength,
-                    Discipline = character.Discipline,
-                    Focus = character.Focus,
-                    Currencies = character.Currencies,
-                    ClassProfiles = character.ClassProfiles.ToDictionary(
-                        kvp => kvp.Key,
-                        kvp => new CharacterClassDto
+                    var domainCharacter = character.ToDomain();
+                    return new CharacterDto
+                    {
+                        Id = character.Id,
+                        Name = character.Name,
+                        HP = character.HP,
+                        HPMax = character.HPMax,
+                        MP = character.MP,
+                        MPMax = character.MPMax,
+                        Strength = character.Strength,
+                        Discipline = character.Discipline,
+                        Focus = character.Focus,
+                        Currencies = character.Currencies,
+                        ClassProfiles = character.ClassProfiles.ToDictionary(
+                            kvp => kvp.Key,
+                            kvp => new CharacterClassDto
+                            {
+                                ClassName = kvp.Value.ClassName,
+                                Level = kvp.Value.Level,
+                                CurrentXp = kvp.Value.CurrentXp,
+                                XpToNextLevel = kvp.Value.XpToNextLevel
+                            }
+                        ),
+                        ActiveBuffModifiers = new AggregateModifierDto
                         {
-                            ClassName = kvp.Value.ClassName,
-                            Level = kvp.Value.Level,
-                            CurrentXp = kvp.Value.CurrentXp,
-                            XpToNextLevel = kvp.Value.XpToNextLevel
-                        }
-                    )
+                            HPModifier = character.ActiveBuffModifiers.HPModifier,
+                            HPMaxModifier = character.ActiveBuffModifiers.HPMaxModifier,
+                            HPPercentModifier = character.ActiveBuffModifiers.HPPercentModifier,
+                            HPMaxPercentModifier = character.ActiveBuffModifiers.HPMaxPercentModifier,
+                            MPModifier = character.ActiveBuffModifiers.MPModifier,
+                            MPMaxModifier = character.ActiveBuffModifiers.MPMaxModifier,
+                            MPPercentModifier = character.ActiveBuffModifiers.MPPercentModifier,
+                            MPMaxPercentModifier = character.ActiveBuffModifiers.MPMaxPercentModifier,
+                            XpGainsPercentModifier = character.ActiveBuffModifiers.XpGainsPercentModifier
+                        },
+                        EffectiveHP = domainCharacter.EffectiveHP,
+                        EffectiveHPMax = domainCharacter.EffectiveHPMax,
+                        EffectiveMP = domainCharacter.EffectiveMP,
+                        EffectiveMPMax = domainCharacter.EffectiveMPMax
+                    };
                 }).ToList();
 
                 return Ok(characterDtos);

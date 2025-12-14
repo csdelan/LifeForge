@@ -43,6 +43,9 @@ namespace LifeForge.DataAccess.Models
         [BsonElement("classProfiles")]
         public Dictionary<string, CharacterClassEntity> ClassProfiles { get; set; } = new();
 
+        [BsonElement("activeBuffModifiers")]
+        public AggregateModifierEntity ActiveBuffModifiers { get; set; } = new();
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -79,7 +82,8 @@ namespace LifeForge.DataAccess.Models
                         BaseXp = kvp.Value.Class.BaseXp,
                         XpMultiplier = kvp.Value.Class.XpMultiplier
                     }
-                )
+                ),
+                ActiveBuffModifiers = AggregateModifierEntity.FromDomain(character.ActiveBuffModifiers)
             };
 
             return entity;
@@ -98,7 +102,8 @@ namespace LifeForge.DataAccess.Models
                 MPMax = MPMax,
                 Strength = Strength,
                 Discipline = Discipline,
-                Focus = Focus
+                Focus = Focus,
+                ActiveBuffModifiers = ActiveBuffModifiers?.ToDomain() ?? new AggregateModifier()
             };
 
             // Convert currencies

@@ -7,11 +7,34 @@
 @inject BuffInstanceService BuffInstanceService
 @inject ActionService ActionService
 @inject IJSRuntime JSRuntime
+@inject HttpClient HttpClient
 
 <PageTitle>Character Sheet</PageTitle>
 
 <div class="character-sheet">
     <h1>Character Sheet</h1>
+
+    @if (showDebugTools)
+    {
+        <!-- Manual Buff Processing Trigger (Development Only) -->
+        <div class="debug-section" style="margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border-radius: 8px;">
+            <button class="btn btn-warning" @onclick="TriggerBuffProcessing" disabled="@isProcessingBuffs">
+                <span class="bi bi-lightning-charge"></span>
+                @if (isProcessingBuffs)
+                {
+                    <span>Processing Buffs...</span>
+                }
+                else
+                {
+                    <span>? Manually Trigger Buff Processing</span>
+                }
+            </button>
+            @if (!string.IsNullOrEmpty(buffProcessingMessage))
+            {
+                <div class="alert alert-info mt-2">@buffProcessingMessage</div>
+            }
+        </div>
+    }
 
     @if (isLoading)
     {
@@ -42,19 +65,19 @@
                 <div class="stat-section">
                     <h3>Resources</h3>
                     <div class="resource-bar">
-                        <label>HP</label>
+                        <label>HP @if (HasBuffModifiers()) { <small title="Base: @((int)_character.HP)">(Buffed)</small> }</label>
                         <div class="progress-bar">
                             <div class="progress-background hp-background"></div>
                             <div class="progress-fill hp-fill" style="width: @GetHPPercentage()%"></div>
-                            <span class="progress-text">@((int)_character.HP) / @((int)_character.HPMax)</span>
+                            <span class="progress-text">@((int)_character.EffectiveHP) / @((int)_character.EffectiveHPMax)</span>
                         </div>
                     </div>
                     <div class="resource-bar">
-                        <label>MP</label>
+                        <label>MP @if (HasBuffModifiers()) { <small title="Base: @((int)_character.MP)">(Buffed)</small> }</label>
                         <div class="progress-bar">
                             <div class="progress-background mp-background"></div>
                             <div class="progress-fill mp-fill" style="width: @GetMPPercentage()%"></div>
-                            <span class="progress-text">@((int)_character.MP) / @((int)_character.MPMax)</span>
+                            <span class="progress-text">@((int)_character.EffectiveMP) / @((int)_character.EffectiveMPMax)</span>
                         </div>
                     </div>
                 </div>
@@ -114,37 +137,41 @@
                 {
                     <p><em>Loading active buffs...</em></p>
                 }
-                else if (activeBuffs.Any())
+                else if (displayBuffs.Any())
                 {
                     <div class="active-buffs-gallery">
-                        @foreach (var buff in activeBuffs)
+                        @foreach (var buffGroup in displayBuffs)
                         {
-                            <div class="active-buff-card @(buff.IsDebuff ? "debuff-card" : "buff-card")" 
-                                 title="@GetBuffTooltip(buff)">
+                            <div class="active-buff-card @(buffGroup.IsDebuff ? "debuff-card" : "buff-card")" 
+                                 title="@GetBuffGroupTooltip(buffGroup)">
                                 <div class="active-buff-image">
-                                    @if (!string.IsNullOrEmpty(buff.ImageData))
+                                    @if (!string.IsNullOrEmpty(buffGroup.ImageData))
                                     {
-                                        <img src="@GetImageDataUrl(buff.ImageData, buff.ImageContentType)" alt="@buff.BuffName" />
+                                        <img src="@GetImageDataUrl(buffGroup.ImageData, buffGroup.ImageContentType)" alt="@buffGroup.BuffName" />
                                     }
                                     else
                                     {
                                         <div class="active-buff-placeholder">
-                                            <span class="bi @(buff.IsDebuff ? "bi-arrow-down-circle" : "bi-arrow-up-circle")"></span>
+                                            <span class="bi @(buffGroup.IsDebuff ? "bi-arrow-down-circle" : "bi-arrow-up-circle")"></span>
                                         </div>
                                     }
-                                    @if (buff.Stacks > 1)
+                                    @if (buffGroup.TotalStacks > 1)
                                     {
-                                        <div class="active-buff-stacks-badge">x@(buff.Stacks)</div>
+                                        <div class="active-buff-stacks-badge">x@(buffGroup.TotalStacks)</div>
                                     }
                                 </div>
                                 <div class="active-buff-info">
-                                    <div class="active-buff-name">@buff.BuffName</div>
+                                    <div class="active-buff-name">@buffGroup.BuffName</div>
                                     <div class="active-buff-timer">
                                         <span class="bi bi-clock"></span>
-                                        @GetBuffTimeRemaining(buff)
+                                        @GetBuffTimeRemaining(buffGroup.OldestEndTime)
                                     </div>
+                                    @if (buffGroup.HasPending)
+                                    {
+                                        <div class="buff-status-badge pending">@buffGroup.PendingCount Pending</div>
+                                    }
                                 </div>
-                                <button class="btn-end-buff" @onclick="() => EndBuff(buff)" title="End Buff">
+                                <button class="btn-end-buff" @onclick="() => RemoveOneStack(buffGroup)" title="Remove 1 Stack">
                                     <span class="bi bi-x-lg"></span>
                                 </button>
                             </div>
@@ -206,27 +233,156 @@
 @code {
     private Models.CharacterDto? _character;
     private List<BuffInstanceDto> activeBuffs = new();
+    private List<BuffDisplayGroup> displayBuffs = new();
     private bool isLoading = true;
     private bool isLoadingBuffs = true;
     private bool isPerformingAction = false;
+    private bool isProcessingBuffs = false;
     private string? errorMessage;
     private string? successMessage;
-    private string? drinkActionId;
-    private string? hangoverBuffId;
-    private string? detoxBuffId;
+    private string? buffProcessingMessage;
+
+    // Show debug tools - set to true for development, false for production
+    // In WASM, we can't easily detect environment, so we use a constant
+    private const bool showDebugTools = true; // Set to false before production deploy
+
+    // Helper class to group buff instances for display
+    private class BuffDisplayGroup
+    {
+        public string BuffId { get; set; } = string.Empty;
+        public string BuffName { get; set; } = string.Empty;
+        public bool IsDebuff { get; set; }
+        public string? ImageData { get; set; }
+        public string? ImageContentType { get; set; }
+        public string? Description { get; set; }
+        public int TotalStacks { get; set; }
+        public int ActiveStacks { get; set; }
+        public int PendingCount { get; set; }
+        public bool HasPending => PendingCount > 0;
+        public DateTime OldestEndTime { get; set; }
+        public List<BuffInstanceDto> Instances { get; set; } = new();
+        
+        // Modifiers (from first instance, they should all be the same)
+        public int HPModifier { get; set; }
+        public int HPMaxModifier { get; set; }
+        public int HPPercentModifier { get; set; }
+        public int HPMaxPercentModifier { get; set; }
+        public int MPModifier { get; set; }
+        public int MPMaxModifier { get; set; }
+        public int MPPercentModifier { get; set; }
+        public int MPMaxPercentModifier { get; set; }
+        public int XpGainsPercentModifier { get; set; }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await LoadCharacter();
         await LoadActiveBuffs();
-        await InitializeActions();
     }
 
-    private async Task InitializeActions()
+    private async Task LoadCharacter()
     {
-        // This will be called to set up the action IDs
-        // In a real scenario, you'd load these from the database
-        // For now, we'll create them if they don't exist
+        try
+        {
+            isLoading = true;
+            _character = await CharacterService.GetCharacterAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"No character found: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadActiveBuffs()
+    {
+        try
+        {
+            isLoadingBuffs = true;
+            if (_character != null && !string.IsNullOrEmpty(_character.Id))
+            {
+                activeBuffs = await BuffInstanceService.GetActiveBuffInstancesByCharacterIdAsync(_character.Id);
+                
+                // Group buffs by BuffId for display
+                displayBuffs = activeBuffs
+                    .GroupBy(b => b.BuffId)
+                    .Select(g =>
+                    {
+                        var first = g.First();
+                        var activeInstances = g.Where(b => b.Status == BuffInstanceStatus.Active).ToList();
+                        var pendingInstances = g.Where(b => b.Status == BuffInstanceStatus.Pending).ToList();
+                        
+                        return new BuffDisplayGroup
+                        {
+                            BuffId = g.Key,
+                            BuffName = first.BuffName,
+                            IsDebuff = first.IsDebuff,
+                            ImageData = first.ImageData,
+                            ImageContentType = first.ImageContentType,
+                            Description = first.Description,
+                            TotalStacks = g.Sum(b => b.Stacks),
+                            ActiveStacks = activeInstances.Sum(b => b.Stacks),
+                            PendingCount = pendingInstances.Count,
+                            OldestEndTime = g.Min(b => b.EndTime),
+                            Instances = g.ToList(),
+                            HPModifier = first.HPModifier,
+                            HPMaxModifier = first.HPMaxModifier,
+                            HPPercentModifier = first.HPPercentModifier,
+                            HPMaxPercentModifier = first.HPMaxPercentModifier,
+                            MPModifier = first.MPModifier,
+                            MPMaxModifier = first.MPMaxModifier,
+                            MPPercentModifier = first.MPPercentModifier,
+                            MPMaxPercentModifier = first.MPMaxPercentModifier,
+                            XpGainsPercentModifier = first.XpGainsPercentModifier
+                        };
+                    })
+                    .ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading active buffs: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingBuffs = false;
+        }
+    }
+
+    private async Task RemoveOneStack(BuffDisplayGroup buffGroup)
+    {
+        // Only remove one stack at a time
+        var confirmMessage = buffGroup.Instances.Count > 1 
+            ? $"Remove 1 stack of '{buffGroup.BuffName}'? ({buffGroup.Instances.Count} total instances)"
+            : $"Remove '{buffGroup.BuffName}'?";
+            
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", confirmMessage))
+        {
+            return;
+        }
+
+        try
+        {
+            // Remove only the oldest instance (FIFO - First In, First Out)
+            var oldestInstance = buffGroup.Instances.OrderBy(i => i.StartTime).First();
+            
+            await BuffInstanceService.DeactivateBuffInstanceAsync(_character!.Id!, oldestInstance.Id!);
+
+            var remaining = buffGroup.Instances.Count - 1;
+            successMessage = remaining > 0 
+                ? $"Removed 1 stack of '{buffGroup.BuffName}' ({remaining} remaining)"
+                : $"Removed '{buffGroup.BuffName}'";
+                
+            await LoadCharacter();
+            await LoadActiveBuffs();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error ending buff: {ex.Message}";
+        }
     }
 
     private async Task DrinkAlcoholicDrink()
@@ -241,8 +397,6 @@
         {
             isPerformingAction = true;
             
-            // Manually activate the Hangover and Alcohol Detoxing buffs
-            // First, try to find these buffs in the system
             var buffService = new BuffService(new HttpClient { BaseAddress = new Uri("https://localhost:7001") });
             var allBuffs = await buffService.GetAllBuffsAsync();
             
@@ -255,7 +409,6 @@
                 return;
             }
 
-            // Activate both buffs
             var hangoverResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, hangoverBuff.Id!);
             var detoxResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, detoxBuff.Id!);
 
@@ -280,91 +433,9 @@
         }
     }
 
-    private string GetDrinkActionTooltip()
+    private string GetBuffTimeRemaining(DateTime endTime)
     {
-        return @"Drink an alcoholic beverage
-
-This action will activate two buffs:
-• Hangover (negative effects)
-• Alcohol Detoxing (recovery process)
-
-Note: Make sure these buffs exist in your buff library.";
-    }
-
-    private async Task LoadCharacter()
-    {
-        try
-        {
-            isLoading = true;
-            _character = await CharacterService.GetCharacterAsync();
-        }
-        catch (Exception ex)
-        {
-            // Character doesn't exist yet - that's okay
-            Console.WriteLine($"No character found: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    private async Task LoadActiveBuffs()
-    {
-        try
-        {
-            isLoadingBuffs = true;
-            if (_character != null && !string.IsNullOrEmpty(_character.Id))
-            {
-                activeBuffs = await BuffInstanceService.GetActiveBuffInstancesByCharacterIdAsync(_character.Id);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading active buffs: {ex.Message}");
-        }
-        finally
-        {
-            isLoadingBuffs = false;
-        }
-    }
-
-    private async Task EndBuff(BuffInstanceDto buff)
-    {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to end '{buff.BuffName}'?"))
-        {
-            return;
-        }
-
-        try
-        {
-            var result = await BuffInstanceService.DeactivateBuffInstanceAsync(_character!.Id!, buff.Id!);
-            
-            if (result != null && result.Success)
-            {
-                var modifiersText = result.ModifiersApplied.Any() 
-                    ? " Removed: " + string.Join(", ", result.ModifiersApplied.Select(m => $"{m.Key} {(m.Value > 0 ? "+" : "")}{m.Value}"))
-                    : "";
-                successMessage = $"Buff '{buff.BuffName}' ended!{modifiersText}";
-                
-                // Reload character and buffs
-                await LoadCharacter();
-                await LoadActiveBuffs();
-            }
-            else
-            {
-                errorMessage = result?.ErrorMessage ?? "Failed to end buff";
-            }
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error ending buff: {ex.Message}";
-        }
-    }
-
-    private string GetBuffTimeRemaining(BuffInstanceDto buff)
-    {
-        var remaining = buff.EndTime - DateTime.UtcNow;
+        var remaining = endTime - DateTime.UtcNow;
         if (remaining.TotalDays >= 1)
             return $"{(int)remaining.TotalDays}d";
         if (remaining.TotalHours >= 1)
@@ -374,44 +445,38 @@ Note: Make sure these buffs exist in your buff library.";
         return "Expiring soon";
     }
 
-    private string GetBuffTooltip(BuffInstanceDto buff)
+    private string GetBuffGroupTooltip(BuffDisplayGroup buffGroup)
     {
         var tooltip = new System.Text.StringBuilder();
+        tooltip.AppendLine(buffGroup.BuffName);
         
-        // Add buff name
-        tooltip.AppendLine(buff.BuffName);
-        
-        // Add description if available
-        if (!string.IsNullOrEmpty(buff.Description))
+        if (!string.IsNullOrEmpty(buffGroup.Description))
         {
             tooltip.AppendLine();
-            tooltip.AppendLine(buff.Description);
+            tooltip.AppendLine(buffGroup.Description);
         }
         
-        // Calculate total modifiers across all stacks
-        var stacks = buff.Stacks;
-        
-        // Add modifiers section (showing total across all stacks)
+        var stacks = buffGroup.TotalStacks;
         var modifiers = new List<string>();
         
-        if (buff.HPModifier != 0)
-            modifiers.Add($"HP {FormatModifier(buff.HPModifier * stacks)} (per stack: {FormatModifier(buff.HPModifier)})");
-        if (buff.HPMaxModifier != 0)
-            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxModifier * stacks)} (per stack: {FormatModifier(buff.HPMaxModifier)})");
-        if (buff.HPPercentModifier != 0)
-            modifiers.Add($"HP {FormatModifier(buff.HPPercentModifier * stacks)}% (per stack: {FormatModifier(buff.HPPercentModifier)}%)");
-        if (buff.HPMaxPercentModifier != 0)
-            modifiers.Add($"HP Max {FormatModifier(buff.HPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buff.HPMaxPercentModifier)}%)");
-        if (buff.MPModifier != 0)
-            modifiers.Add($"MP {FormatModifier(buff.MPModifier * stacks)} (per stack: {FormatModifier(buff.MPModifier)})");
-        if (buff.MPMaxModifier != 0)
-            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxModifier * stacks)} (per stack: {FormatModifier(buff.MPMaxModifier)})");
-        if (buff.MPPercentModifier != 0)
-            modifiers.Add($"MP {FormatModifier(buff.MPPercentModifier * stacks)}% (per stack: {FormatModifier(buff.MPPercentModifier)}%)");
-        if (buff.MPMaxPercentModifier != 0)
-            modifiers.Add($"MP Max {FormatModifier(buff.MPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buff.MPMaxPercentModifier)}%)");
-        if (buff.XpGainsPercentModifier != 0)
-            modifiers.Add($"XP Gains {FormatModifier(buff.XpGainsPercentModifier * stacks)}% (per stack: {FormatModifier(buff.XpGainsPercentModifier)}%)");
+        if (buffGroup.HPModifier != 0)
+            modifiers.Add($"HP {FormatModifier(buffGroup.HPModifier * stacks)} (per stack: {FormatModifier(buffGroup.HPModifier)})");
+        if (buffGroup.HPMaxModifier != 0)
+            modifiers.Add($"HP Max {FormatModifier(buffGroup.HPMaxModifier * stacks)} (per stack: {FormatModifier(buffGroup.HPMaxModifier)})");
+        if (buffGroup.HPPercentModifier != 0)
+            modifiers.Add($"HP {FormatModifier(buffGroup.HPPercentModifier * stacks)}% (per stack: {FormatModifier(buffGroup.HPPercentModifier)}%)");
+        if (buffGroup.HPMaxPercentModifier != 0)
+            modifiers.Add($"HP Max {FormatModifier(buffGroup.HPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buffGroup.HPMaxPercentModifier)}%)");
+        if (buffGroup.MPModifier != 0)
+            modifiers.Add($"MP {FormatModifier(buffGroup.MPModifier * stacks)} (per stack: {FormatModifier(buffGroup.MPModifier)})");
+        if (buffGroup.MPMaxModifier != 0)
+            modifiers.Add($"MP Max {FormatModifier(buffGroup.MPMaxModifier * stacks)} (per stack: {FormatModifier(buffGroup.MPMaxModifier)})");
+        if (buffGroup.MPPercentModifier != 0)
+            modifiers.Add($"MP {FormatModifier(buffGroup.MPPercentModifier * stacks)}% (per stack: {FormatModifier(buffGroup.MPPercentModifier)}%)");
+        if (buffGroup.MPMaxPercentModifier != 0)
+            modifiers.Add($"MP Max {FormatModifier(buffGroup.MPMaxPercentModifier * stacks)}% (per stack: {FormatModifier(buffGroup.MPMaxPercentModifier)}%)");
+        if (buffGroup.XpGainsPercentModifier != 0)
+            modifiers.Add($"XP Gains {FormatModifier(buffGroup.XpGainsPercentModifier * stacks)}% (per stack: {FormatModifier(buffGroup.XpGainsPercentModifier)}%)");
         
         if (modifiers.Any())
         {
@@ -430,11 +495,15 @@ Note: Make sure these buffs exist in your buff library.";
             }
         }
         
-        // Add stacks info if > 1
-        if (buff.Stacks > 1)
+        if (buffGroup.TotalStacks > 1)
         {
             tooltip.AppendLine();
-            tooltip.AppendLine($"Active Stacks: {buff.Stacks}");
+            tooltip.AppendLine($"Active Instances: {buffGroup.Instances.Count}");
+            tooltip.AppendLine($"Total Stacks: {buffGroup.TotalStacks}");
+            if (buffGroup.HasPending)
+            {
+                tooltip.AppendLine($"Pending: {buffGroup.PendingCount}");
+            }
         }
         
         return tooltip.ToString().TrimEnd();
@@ -454,16 +523,61 @@ Note: Make sure these buffs exist in your buff library.";
         return $"data:{mimeType};base64,{imageData}";
     }
 
+    private bool HasBuffModifiers()
+    {
+        if (_character == null) return false;
+        var mods = _character.ActiveBuffModifiers;
+        return mods.HPModifier != 0 || mods.HPMaxModifier != 0 || mods.HPPercentModifier != 0 ||
+               mods.HPMaxPercentModifier != 0 || mods.MPModifier != 0 || mods.MPMaxModifier != 0 ||
+               mods.MPPercentModifier != 0 || mods.MPMaxPercentModifier != 0;
+    }
+
+    private async Task TriggerBuffProcessing()
+    {
+        try
+        {
+            isProcessingBuffs = true;
+            buffProcessingMessage = "Triggering buff processing...";
+            StateHasChanged();
+
+            var response = await HttpClient.PostAsync("api/buffprocessing/trigger", null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                buffProcessingMessage = "? Buff processing completed successfully! Reloading character...";
+                await Task.Delay(500);
+                await LoadCharacter();
+                await LoadActiveBuffs();
+                successMessage = "Buff processing completed!";
+            }
+            else
+            {
+                buffProcessingMessage = "? Failed to process buffs";
+                errorMessage = "Failed to trigger buff processing";
+            }
+        }
+        catch (Exception ex)
+        {
+            buffProcessingMessage = $"? Error: {ex.Message}";
+            errorMessage = $"Error triggering buff processing: {ex.Message}";
+        }
+        finally
+        {
+            isProcessingBuffs = false;
+            StateHasChanged();
+        }
+    }
+
     private double GetHPPercentage()
     {
-        if (_character == null || _character.HPMax == 0) return 0;
-        return (double)(_character.HP / _character.HPMax) * 100;
+        if (_character == null || _character.EffectiveHPMax == 0) return 0;
+        return (double)(_character.EffectiveHP / _character.EffectiveHPMax) * 100;
     }
 
     private double GetMPPercentage()
     {
-        if (_character == null || _character.MPMax == 0) return 0;
-        return (double)(_character.MP / _character.MPMax) * 100;
+        if (_character == null || _character.EffectiveMPMax == 0) return 0;
+        return (double)(_character.EffectiveMP / _character.EffectiveMPMax) * 100;
     }
 
     private double GetXPPercentage(Models.CharacterClassDto classSnapshot)

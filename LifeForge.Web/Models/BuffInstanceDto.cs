@@ -14,6 +14,7 @@ namespace LifeForge.Web.Models
         public DateTime EndTime { get; set; }
         public int Stacks { get; set; }
         public bool IsActive { get; set; }
+        public BuffInstanceStatus Status { get; set; }
         public int HPModifier { get; set; }
         public int HPMaxModifier { get; set; }
         public int HPPercentModifier { get; set; }
