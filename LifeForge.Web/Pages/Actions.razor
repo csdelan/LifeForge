@@ -1,0 +1,797 @@
+@page "/actions"
+@using LifeForge.Web.Models
+@using LifeForge.Web.Services
+@using LifeForge.Domain
+@inject ActionService ActionService
+@inject BuffService BuffService
+@inject CharacterService CharacterService
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<PageTitle>Action Manager</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Action Manager</h1>
+    <button class="btn btn-primary" @onclick="ShowCreateModal">
+        <span class="bi bi-plus-circle"></span> Create New Action
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <p><em>Loading actions...</em></p>
+}
+else if (actions == null || !actions.Any())
+{
+    <div class="alert alert-info">
+        No actions available. Create your first action to get started!
+    </div>
+}
+else
+{
+    <div class="action-gallery">
+        @foreach (var action in actions)
+        {
+            <div class="action-card" @onclick="() => ShowEditModal(action)">
+                <div class="action-card-image">
+                    @if (!string.IsNullOrEmpty(action.ImageData))
+                    {
+                        <img src="@GetImageDataUrl(action.ImageData, action.ImageContentType)" alt="@action.Name" />
+                    }
+                    else if (!string.IsNullOrEmpty(action.Icon))
+                    {
+                        <div class="action-card-icon">@action.Icon</div>
+                    }
+                    else
+                    {
+                        <div class="action-card-placeholder">
+                            <span class="bi bi-lightning-charge"></span>
+                        </div>
+                    }
+                </div>
+                <div class="action-card-content">
+                    <h3 class="action-card-title">@action.Name</h3>
+                    <p class="action-card-description">@(string.IsNullOrEmpty(action.Description) ? "No description" : action.Description)</p>
+                    <div class="action-card-footer">
+                        <span class="badge bg-info">@action.Category</span>
+                        @if (action.BuffIds.Any())
+                        {
+                            <span class="action-buffs">
+                                <span class="bi bi-stars"></span> @action.BuffIds.Count @(action.BuffIds.Count == 1 ? "Buff" : "Buffs")
+                            </span>
+                        }
+                        @if (action.CooldownHours > 0)
+                        {
+                            <span class="action-cooldown">
+                                <span class="bi bi-clock"></span> @action.CooldownHours h
+                            </span>
+                        }
+                    </div>
+                </div>
+                <div class="action-card-actions" @onclick:stopPropagation="true">
+                    <button class="btn btn-sm btn-execute" @onclick="() => ExecuteAction(action)" title="Execute this action">
+                        <span class="bi bi-play-fill"></span>
+                        <span class="btn-label">Execute</span>
+                    </button>
+                    <button class="btn btn-sm btn-edit" @onclick="() => ShowEditModal(action)" title="Edit action settings">
+                        <span class="bi bi-pencil"></span>
+                        <span class="btn-label">Edit</span>
+                    </button>
+                    <button class="btn btn-sm btn-delete" @onclick="() => DeleteAction(action.Id!)" title="Delete this action permanently">
+                        <span class="bi bi-trash"></span>
+                        <span class="btn-label">Delete</span>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" @onclick="CloseModal">
+        <div class="modal-dialog modal-xl" @onclick:stopPropagation="true">
+            <div class="modal-content custom-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(isEditMode ? "Edit Action" : "Create New Action")</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentAction" OnValidSubmit="SaveAction">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Name</label>
+                                    <InputText class="form-control" @bind-Value="currentAction.Name" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Description</label>
+                                    <InputTextArea class="form-control" rows="3" @bind-Value="currentAction.Description" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Icon (emoji)</label>
+                                    <InputText class="form-control" @bind-Value="currentAction.Icon" placeholder="??" />
+                                    <small class="text-muted">Enter an emoji to represent this action</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Action Image (Optional)</label>
+                                    <InputFile class="form-control" OnChange="HandleImageUpload" accept="image/*" />
+                                    @if (isUploading)
+                                    {
+                                        <small class="text-muted">Uploading image...</small>
+                                    }
+                                    @if (!string.IsNullOrEmpty(currentAction.ImageData))
+                                    {
+                                        <div class="mt-2">
+                                            <img src="@GetImageDataUrl(currentAction.ImageData, currentAction.ImageContentType)" alt="Preview" style="max-width: 150px; max-height: 150px; border-radius: 8px;" />
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Category</label>
+                                    <InputSelect class="form-select" @bind-Value="currentAction.Category">
+                                        @foreach (ActionCategory category in Enum.GetValues(typeof(ActionCategory)))
+                                        {
+                                            <option value="@category">@category</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Cooldown (hours)</label>
+                                    <InputNumber class="form-control" @bind-Value="currentAction.CooldownHours" min="0" />
+                                    <small class="text-muted">How long before this action can be performed again (0 for no cooldown)</small>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="mb-3">Buffs to Activate</h6>
+                                <p class="text-muted small">Select which buffs should be activated when this action is performed.</p>
+                                
+                                @if (isLoadingBuffs)
+                                {
+                                    <p><em>Loading buffs...</em></p>
+                                }
+                                else if (availableBuffs.Any())
+                                {
+                                    <div class="buff-selection-list">
+                                        @foreach (var buff in availableBuffs)
+                                        {
+                                            var isSelected = currentAction.BuffIds.Contains(buff.Id!);
+                                            <div class="buff-selection-item @(isSelected ? "selected" : "")" @onclick="() => ToggleBuff(buff.Id!)">
+                                                <input type="checkbox" checked="@isSelected" @onclick:stopPropagation="true" @onchange="() => ToggleBuff(buff.Id!)" />
+                                                <div class="buff-selection-info">
+                                                    <div class="buff-selection-name">@buff.Name</div>
+                                                    <div class="buff-selection-type">
+                                                        <span class="badge @(buff.IsDebuff ? "bg-danger" : "bg-success")">
+                                                            @(buff.IsDebuff ? "Debuff" : "Buff")
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="alert alert-warning">
+                                        No buffs available. Create some buffs first!
+                                    </div>
+                                }
+
+                                @if (currentAction.BuffIds.Any())
+                                {
+                                    <div class="mt-3">
+                                        <strong>Selected Buffs (@currentAction.BuffIds.Count):</strong>
+                                        <ul class="selected-buffs-list">
+                                            @foreach (var buffId in currentAction.BuffIds)
+                                            {
+                                                var buff = availableBuffs.FirstOrDefault(b => b.Id == buffId);
+                                                if (buff != null)
+                                                {
+                                                    <li>@buff.Name</li>
+                                                }
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isUploading">
+                                @(isEditMode ? "Update" : "Create") Action
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+        @successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+
+<style>
+    .action-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .action-card {
+        background: #2d2d2d;
+        border-radius: 12px;
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        border: 2px solid #17a2b8;
+        cursor: pointer;
+    }
+
+    .action-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .action-card-image {
+        width: 100%;
+        height: 200px;
+        overflow: hidden;
+        background: #1a1a1a;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .action-card-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .action-card-icon {
+        font-size: 5rem;
+    }
+
+    .action-card-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 3rem;
+        color: #555;
+    }
+
+    .action-card-content {
+        padding: 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .action-card-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.75rem 0;
+        color: #fff;
+        line-height: 1.3;
+    }
+
+    .action-card-description {
+        font-size: 0.9rem;
+        color: #aaa;
+        margin: 0 0 1rem 0;
+        line-height: 1.5;
+        flex: 1;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .action-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .action-buffs, .action-cooldown {
+        font-size: 0.85rem;
+        color: #888;
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .action-card-actions {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .action-card:hover .action-card-actions {
+        opacity: 1;
+    }
+
+    .action-card-actions .btn {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        border: none;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+    .action-card-actions .btn-execute {
+        background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .action-card-actions .btn-execute:hover {
+        background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+    }
+
+    .action-card-actions .btn-edit {
+        background: rgba(108, 117, 125, 0.95);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .action-card-actions .btn-edit:hover {
+        background: rgba(108, 117, 125, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4);
+    }
+
+    .action-card-actions .btn-delete {
+        background: rgba(220, 53, 69, 0.95);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .action-card-actions .btn-delete:hover {
+        background: rgba(200, 35, 51, 1);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
+    }
+
+    .action-card-actions .btn .bi {
+        font-size: 1rem;
+    }
+
+    .action-card-actions .btn-label {
+        font-size: 0.8rem;
+    }
+
+    .badge {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+
+    .custom-modal {
+        background-color: #ffffff;
+        color: #212529;
+    }
+
+    .custom-modal .modal-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .custom-modal .modal-title {
+        color: #212529;
+    }
+
+    .custom-modal .modal-body {
+        color: #212529;
+    }
+
+    .custom-modal .modal-footer {
+        background-color: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .custom-modal .form-label {
+        color: #212529;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .custom-modal .form-control,
+    .custom-modal .form-select {
+        background-color: #ffffff;
+        color: #212529;
+        border: 1px solid #ced4da;
+    }
+
+    .custom-modal .form-control:focus,
+    .custom-modal .form-select:focus {
+        background-color: #ffffff;
+        color: #212529;
+        border-color: #86b7fe;
+        outline: 0;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .custom-modal .text-muted {
+        color: #6c757d !important;
+    }
+
+    .buff-selection-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+
+    .buff-selection-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        margin-bottom: 0.5rem;
+        border: 2px solid #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .buff-selection-item:hover {
+        background-color: #f8f9fa;
+        border-color: #17a2b8;
+    }
+
+    .buff-selection-item.selected {
+        background-color: #e7f5ff;
+        border-color: #17a2b8;
+    }
+
+    .buff-selection-info {
+        flex: 1;
+    }
+
+    .buff-selection-name {
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .buff-selection-type {
+        margin-top: 0.25rem;
+    }
+
+    .selected-buffs-list {
+        list-style: none;
+        padding-left: 0;
+        margin-top: 0.5rem;
+    }
+
+    .selected-buffs-list li {
+        padding: 0.25rem 0;
+        color: #212529;
+    }
+
+    @@media (max-width: 768px) {
+        .action-gallery {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-card-actions {
+            opacity: 1;
+        }
+    }
+</style>
+
+@code {
+    private List<ActionDto> actions = new();
+    private List<BuffDto> availableBuffs = new();
+    private ActionDto currentAction = new();
+    private bool showModal = false;
+    private bool isEditMode = false;
+    private bool isLoading = true;
+    private bool isLoadingBuffs = true;
+    private bool isUploading = false;
+    private string? errorMessage;
+    private string? successMessage;
+    private DotNetObjectReference<Actions>? objRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadActions();
+        await LoadBuffs();
+        objRef = DotNetObjectReference.Create(this);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.addEscapeKeyListener", objRef);
+        }
+        else if (!showModal && objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+        }
+    }
+
+    [JSInvokable]
+    public void HandleEscapeKey()
+    {
+        CloseModal();
+        StateHasChanged();
+    }
+
+    private async Task LoadActions()
+    {
+        try
+        {
+            isLoading = true;
+            actions = await ActionService.GetAllActionsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load actions: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadBuffs()
+    {
+        try
+        {
+            isLoadingBuffs = true;
+            availableBuffs = await BuffService.GetAllBuffsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load buffs: {ex.Message}";
+        }
+        finally
+        {
+            isLoadingBuffs = false;
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        currentAction = new ActionDto
+        {
+            Category = ActionCategory.Other,
+            CooldownHours = 0,
+            BuffIds = new List<string>()
+        };
+        isEditMode = false;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void ShowEditModal(ActionDto action)
+    {
+        currentAction = new ActionDto
+        {
+            Id = action.Id,
+            Name = action.Name,
+            Description = action.Description,
+            Icon = action.Icon,
+            ImageName = action.ImageName,
+            ImageData = action.ImageData,
+            ImageContentType = action.ImageContentType,
+            BuffIds = new List<string>(action.BuffIds),
+            Category = action.Category,
+            CooldownHours = action.CooldownHours
+        };
+        isEditMode = true;
+        showModal = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        currentAction = new();
+    }
+
+    private async Task HandleImageUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            isUploading = true;
+            var file = e.File;
+            var uploadResult = await ActionService.UploadImageAsync(file);
+            if (uploadResult != null)
+            {
+                currentAction.ImageName = uploadResult.FileName;
+                currentAction.ImageData = uploadResult.ImageData;
+                currentAction.ImageContentType = uploadResult.ContentType;
+            }
+            else
+            {
+                errorMessage = "Failed to upload image";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error uploading image: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private void ToggleBuff(string buffId)
+    {
+        if (currentAction.BuffIds.Contains(buffId))
+        {
+            currentAction.BuffIds.Remove(buffId);
+        }
+        else
+        {
+            currentAction.BuffIds.Add(buffId);
+        }
+    }
+
+    private async Task SaveAction()
+    {
+        try
+        {
+            if (isEditMode)
+            {
+                var success = await ActionService.UpdateActionAsync(currentAction.Id!, currentAction);
+                if (success)
+                {
+                    successMessage = "Action updated successfully!";
+                    await LoadActions();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to update action";
+                }
+            }
+            else
+            {
+                var created = await ActionService.CreateActionAsync(currentAction);
+                if (created != null)
+                {
+                    successMessage = "Action created successfully!";
+                    await LoadActions();
+                    CloseModal();
+                }
+                else
+                {
+                    errorMessage = "Failed to create action";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving action: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteAction(string id)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this action?"))
+        {
+            return;
+        }
+
+        try
+        {
+            var success = await ActionService.DeleteActionAsync(id);
+            if (success)
+            {
+                successMessage = "Action deleted successfully!";
+                await LoadActions();
+            }
+            else
+            {
+                errorMessage = "Failed to delete action";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting action: {ex.Message}";
+        }
+    }
+
+    private async Task ExecuteAction(ActionDto action)
+    {
+        try
+        {
+            var characters = await CharacterService.GetAllCharactersAsync();
+            var character = characters.FirstOrDefault();
+
+            if (character == null)
+            {
+                errorMessage = "No character found. Please create a character first.";
+                return;
+            }
+
+            var result = await ActionService.PerformActionAsync(character.Id!, action.Id!);
+            
+            if (result != null && result.Success)
+            {
+                successMessage = $"Action '{action.Name}' executed successfully! {result.ActivatedBuffs.Count} buff(s) activated.";
+            }
+            else
+            {
+                errorMessage = result?.ErrorMessage ?? "Failed to execute action";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error executing action: {ex.Message}";
+        }
+    }
+
+    private string GetImageDataUrl(string? imageData, string? contentType)
+    {
+        if (string.IsNullOrEmpty(imageData))
+            return string.Empty;
+        
+        var mimeType = !string.IsNullOrEmpty(contentType) ? contentType : "image/jpeg";
+        return $"data:{mimeType};base64,{imageData}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (objRef != null)
+        {
+            await JSRuntime.InvokeVoidAsync("window.removeEscapeKeyListener");
+            objRef.Dispose();
+        }
+    }
+}

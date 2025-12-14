@@ -36,6 +36,9 @@ namespace LifeForge.Api.Controllers
                     Name = a.Name,
                     Description = a.Description,
                     Icon = a.Icon,
+                    ImageName = a.ImageName,
+                    ImageData = a.ImageData,
+                    ImageContentType = a.ImageContentType,
                     BuffIds = a.BuffIds,
                     Category = a.Category,
                     CooldownHours = a.CooldownHours
@@ -67,6 +70,9 @@ namespace LifeForge.Api.Controllers
                     Name = action.Name,
                     Description = action.Description,
                     Icon = action.Icon,
+                    ImageName = action.ImageName,
+                    ImageData = action.ImageData,
+                    ImageContentType = action.ImageContentType,
                     BuffIds = action.BuffIds,
                     Category = action.Category,
                     CooldownHours = action.CooldownHours
@@ -91,6 +97,9 @@ namespace LifeForge.Api.Controllers
                     Name = actionDto.Name,
                     Description = actionDto.Description,
                     Icon = actionDto.Icon,
+                    ImageName = actionDto.ImageName,
+                    ImageData = actionDto.ImageData,
+                    ImageContentType = actionDto.ImageContentType,
                     BuffIds = actionDto.BuffIds,
                     Category = actionDto.Category,
                     CooldownHours = actionDto.CooldownHours
@@ -104,6 +113,9 @@ namespace LifeForge.Api.Controllers
                     Name = created.Name,
                     Description = created.Description,
                     Icon = created.Icon,
+                    ImageName = created.ImageName,
+                    ImageData = created.ImageData,
+                    ImageContentType = created.ImageContentType,
                     BuffIds = created.BuffIds,
                     Category = created.Category,
                     CooldownHours = created.CooldownHours
@@ -115,6 +127,76 @@ namespace LifeForge.Api.Controllers
             {
                 _logger.LogError(ex, "Error creating action");
                 return StatusCode(500, "An error occurred while creating the action");
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateAction(string id, [FromBody] ActionDto actionDto)
+        {
+            try
+            {
+                var existingAction = await _actionRepository.GetActionByIdAsync(id);
+                if (existingAction == null)
+                {
+                    return NotFound();
+                }
+
+                existingAction.Name = actionDto.Name;
+                existingAction.Description = actionDto.Description;
+                existingAction.Icon = actionDto.Icon;
+                existingAction.ImageName = actionDto.ImageName;
+                existingAction.ImageData = actionDto.ImageData;
+                existingAction.ImageContentType = actionDto.ImageContentType;
+                existingAction.BuffIds = actionDto.BuffIds;
+                existingAction.Category = actionDto.Category;
+                existingAction.CooldownHours = actionDto.CooldownHours;
+
+                var success = await _actionRepository.UpdateActionAsync(id, existingAction);
+                if (!success)
+                {
+                    return StatusCode(500, "Failed to update action");
+                }
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating action {ActionId}", id);
+                return StatusCode(500, "An error occurred while updating the action");
+            }
+        }
+
+        [HttpPost("upload-image")]
+        public async Task<ActionResult<object>> UploadImage(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest("No file uploaded");
+                }
+
+                if (file.Length > 5 * 1024 * 1024)
+                {
+                    return BadRequest("File size exceeds 5MB limit");
+                }
+
+                using var memoryStream = new MemoryStream();
+                await file.CopyToAsync(memoryStream);
+                var imageBytes = memoryStream.ToArray();
+                var base64String = Convert.ToBase64String(imageBytes);
+
+                return Ok(new
+                {
+                    fileName = file.FileName,
+                    imageData = base64String,
+                    contentType = file.ContentType
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading image");
+                return StatusCode(500, "An error occurred while uploading the image");
             }
         }
 

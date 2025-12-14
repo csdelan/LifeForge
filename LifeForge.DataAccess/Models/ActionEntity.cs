@@ -22,6 +22,15 @@ namespace LifeForge.DataAccess.Models
         [BsonElement("icon")]
         public string Icon { get; set; } = string.Empty;
 
+        [BsonElement("imageName")]
+        public string? ImageName { get; set; }
+
+        [BsonElement("imageData")]
+        public string? ImageData { get; set; }
+
+        [BsonElement("imageContentType")]
+        public string? ImageContentType { get; set; }
+
         [BsonElement("buffIds")]
         public List<string> BuffIds { get; set; } = new List<string>();
 
@@ -45,6 +54,9 @@ namespace LifeForge.DataAccess.Models
                 Name = action.Name,
                 Description = action.Description,
                 Icon = action.Icon,
+                ImageName = action.ImageName,
+                ImageData = action.ImageData,
+                ImageContentType = action.ImageContentType,
                 BuffIds = action.BuffIds,
                 Category = action.Category,
                 CooldownHours = action.CooldownHours
@@ -58,6 +70,9 @@ namespace LifeForge.DataAccess.Models
                 Name = Name,
                 Description = Description,
                 Icon = Icon,
+                ImageName = ImageName,
+                ImageData = ImageData,
+                ImageContentType = ImageContentType,
                 BuffIds = BuffIds,
                 Category = Category,
                 CooldownHours = CooldownHours

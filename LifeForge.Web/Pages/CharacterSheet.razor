@@ -186,21 +186,46 @@
 
             <div class="actions-section">
                 <h3>Common Actions</h3>
-                <div class="actions-list">
-                    <div class="action-item">
-                        <div class="action-info">
-                            <span class="action-icon">??</span>
-                            <div class="action-details">
-                                <div class="action-name">Drink Alcoholic Beverage</div>
-                                <div class="action-description">Drink an alcoholic drink, resulting in Hangover and Alcohol Detoxing effects</div>
+                @if (isLoadingActions)
+                {
+                    <p><em>Loading actions...</em></p>
+                }
+                else if (availableActions.Any())
+                {
+                    <div class="actions-list">
+                        @foreach (var action in availableActions)
+                        {
+                            <div class="action-item">
+                                <div class="action-info">
+                                    @if (!string.IsNullOrEmpty(action.ImageData))
+                                    {
+                                        <img src="@GetImageDataUrl(action.ImageData, action.ImageContentType)" alt="@action.Name" class="action-image" />
+                                    }
+                                    else if (!string.IsNullOrEmpty(action.Icon))
+                                    {
+                                        <span class="action-icon">@action.Icon</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="action-icon">?</span>
+                                    }
+                                    <div class="action-details">
+                                        <div class="action-name">@action.Name</div>
+                                        <div class="action-description">@action.Description</div>
+                                    </div>
+                                </div>
+                                <button class="btn-execute-action" @onclick="() => ExecuteAction(action)" disabled="@isPerformingAction" title="Execute this action">
+                                    <span class="bi bi-play-circle-fill"></span>
+                                    Execute
+                                </button>
                             </div>
-                        </div>
-                        <button class="btn-execute-action" @onclick="DrinkAlcoholicDrink" disabled="@isPerformingAction" title="Execute this action">
-                            <span class="bi bi-play-circle-fill"></span>
-                            Execute
-                        </button>
+                        }
                     </div>
-                </div>
+                }
+                else
+                {
+                    <p class="no-data">No actions available. <a href="/actions">Create some actions</a> to get started!</p>
+                }
             </div>
         </div>
     }
@@ -234,8 +259,10 @@
     private Models.CharacterDto? _character;
     private List<BuffInstanceDto> activeBuffs = new();
     private List<BuffDisplayGroup> displayBuffs = new();
+    private List<Models.ActionDto> availableActions = new();
     private bool isLoading = true;
     private bool isLoadingBuffs = true;
+    private bool isLoadingActions = true;
     private bool isPerformingAction = false;
     private bool isProcessingBuffs = false;
     private string? errorMessage;
@@ -278,6 +305,7 @@
     {
         await LoadCharacter();
         await LoadActiveBuffs();
+        await LoadActions();
     }
 
     private async Task LoadCharacter()
@@ -352,6 +380,23 @@
         }
     }
 
+    private async Task LoadActions()
+    {
+        try
+        {
+            isLoadingActions = true;
+            availableActions = await ActionService.GetAllActionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading actions: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingActions = false;
+        }
+    }
+
     private async Task RemoveOneStack(BuffDisplayGroup buffGroup)
     {
         // Only remove one stack at a time
@@ -385,7 +430,7 @@
         }
     }
 
-    private async Task DrinkAlcoholicDrink()
+    private async Task ExecuteAction(Models.ActionDto action)
     {
         if (_character == null || string.IsNullOrEmpty(_character.Id))
         {
@@ -397,30 +442,18 @@
         {
             isPerformingAction = true;
             
-            var buffService = new BuffService(new HttpClient { BaseAddress = new Uri("https://localhost:7001") });
-            var allBuffs = await buffService.GetAllBuffsAsync();
-            
-            var hangoverBuff = allBuffs.FirstOrDefault(b => b.Name == "Hangover");
-            var detoxBuff = allBuffs.FirstOrDefault(b => b.Name == "Alcohol Detoxing");
-            
-            if (hangoverBuff == null || detoxBuff == null)
-            {
-                errorMessage = "Required buffs (Hangover and Alcohol Detoxing) not found. Please create them first.";
-                return;
-            }
+            var result = await ActionService.PerformActionAsync(_character.Id, action.Id!);
 
-            var hangoverResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, hangoverBuff.Id!);
-            var detoxResult = await BuffInstanceService.ActivateBuffAsync(_character.Id, detoxBuff.Id!);
-
-            if (hangoverResult?.Success == true && detoxResult?.Success == true)
+            if (result?.Success == true && result.ActivatedBuffs.Any())
             {
-                successMessage = "?? You drank an alcoholic beverage! Effects: Hangover and Alcohol Detoxing activated.";
+                var actionIcon = !string.IsNullOrEmpty(action.Icon) ? action.Icon : "?";
+                successMessage = $"{actionIcon} {action.Name} executed successfully! {result.ActivatedBuffs.Count} buff(s) activated.";
                 await LoadCharacter();
                 await LoadActiveBuffs();
             }
             else
             {
-                errorMessage = "Failed to apply drinking effects. " + (hangoverResult?.ErrorMessage ?? detoxResult?.ErrorMessage ?? "");
+                errorMessage = result?.ErrorMessage ?? "Failed to execute action - no buffs were activated";
             }
         }
         catch (Exception ex)

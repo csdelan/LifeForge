@@ -8,6 +8,9 @@ namespace LifeForge.Web.Models
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Icon { get; set; } = string.Empty;
+        public string? ImageName { get; set; }
+        public string? ImageData { get; set; }
+        public string? ImageContentType { get; set; }
         public List<string> BuffIds { get; set; } = new List<string>();
         public ActionCategory Category { get; set; }
         public int CooldownHours { get; set; } = 0;
